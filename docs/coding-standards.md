@@ -53,15 +53,28 @@ codebase.
 - One module per logical component (e.g. `SyncEngine.cppm`,
   `FileMetadata.cppm`). Use module partitions (`module SyncEngine:Internal;`)
   if a module grows large enough to need internal-only splitting.
-- Import order: standard library first (`import std;`, available under
-  C++23), then third-party libraries, then project modules, each group
+- `ìmport std;` is **not used** in this project, as it requires CMake 3.30+ with libc++ built with module support,
+  confirmed unavailable on the project's toolchain (CMake 3.28). Standard library headers are included via a 
+  global module fragment instead:
+
+```cpp
+module;
+#include <string>
+#include <iostream>
+
+export module MyModule;
+
+export namespace nubilo {
+      //...
+}
+```
+
+- Third-party dependencies, that aren't modularized follow the same global module fragment pattern. 
+- Import order: project modules first, each group
   separated by a blank line, same spirit as the old include-order rule.
 - No `using namespace std;` inside module interfaces; acceptable sparingly
   in module implementation units if it genuinely improves readability.
-- Anything not yet modularized by its library (some third-party
-  dependencies may still only ship headers) is included via a global module
-  fragment (`module; #include <...> export module X;`) rather than a plain
-  `#include` scattered in the module body.
+
 
 ## Error handling
 
