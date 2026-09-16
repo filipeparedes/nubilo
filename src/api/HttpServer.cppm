@@ -51,7 +51,7 @@ private:
      * @brief Registers all HTTP routes on the underlying server;
      */
     void setupRoutes() {
-        server_.Get("/health", [](const httplib::Request& req, httplib::Response& res) {
+        server_.Get("/health", [](const httplib::Request& /*req*/, httplib::Response& res) {
             res.set_content(R"({"status":"ok"})", "application/json");
         });
     }
