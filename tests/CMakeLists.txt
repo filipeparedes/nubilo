@@ -10,6 +10,7 @@ target_sources(nubilo_tests
             ${CMAKE_SOURCE_DIR}/src/api/HttpServer.cppm
 )
 
+target_compile_options(nubilo_tests PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo_tests PRIVATE GTest::gtest_main httplib::httplib)
 
 include(GoogleTest)

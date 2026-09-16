@@ -23,7 +23,7 @@ target_sources(nubilo
       src/version.cppm
       src/api/HttpServer.cppm
 )
-
+target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib)
 
 # ---- TESTING ---
