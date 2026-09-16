@@ -39,6 +39,13 @@ public:
         server_.listen("0.0.0.0", port_);
     }
 
+    /**
+     * @brief Stops the server, unblocking a prior call to run().
+     */
+    void stop() {
+        server_.stop();
+    }
+
 private:
     /**
      * @brief Registers all HTTP routes on the underlying server;
