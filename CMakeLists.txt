@@ -7,16 +7,26 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(FetchContent)
+
+FetchContent_Declare(
+  httplib
+  GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+  GIT_TAG v0.18.5
+)
+FetchContent_MakeAvailable(httplib)
 
 add_executable(nubilo src/main.cpp)
 target_sources(nubilo 
   PUBLIC
     FILE_SET CXX_MODULES FILES
       src/version.cppm
+      src/api/HttpServer.cppm
 )
+target_compile_options(nubilo PRIVATE -Wall -Wextra)
+target_link_libraries(nubilo PRIVATE httplib::httplib)
 
 # ---- TESTING ---
-include (FetchContent)
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
