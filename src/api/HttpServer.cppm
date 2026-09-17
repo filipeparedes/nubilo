@@ -27,8 +27,14 @@ public:
      * @brief Constructs the server and registers all routes.
      * @param port The TCP port to listen on once run() is called.
      */
-    explicit HttpServer(int port) : port_(port) {
-        setupRoutes();
+    explicit HttpServer(int port) : port_(port) {}
+
+    /**
+     * @brief Exposes the underlying httplib server
+     * @return
+     */
+    httplib::Server& getServer() {
+        return server_;
     }
 
     /**
@@ -47,15 +53,6 @@ public:
     }
 
 private:
-    /**
-     * @brief Registers all HTTP routes on the underlying server;
-     */
-    void setupRoutes() {
-        server_.Get("/health", [](const httplib::Request& /*req*/, httplib::Response& res) {
-            res.set_content(R"({"status":"ok"})", "application/json");
-        });
-    }
-
     httplib::Server server_;
     int port_;
 };
