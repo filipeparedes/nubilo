@@ -22,6 +22,7 @@ target_sources(nubilo
     FILE_SET CXX_MODULES FILES
       src/version.cppm
       src/api/HttpServer.cppm
+      src/api/Router.cppm
 )
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib)
