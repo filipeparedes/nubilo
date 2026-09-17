@@ -23,6 +23,7 @@ target_sources(nubilo
       src/version.cppm
       src/api/HttpServer.cppm
       src/api/Router.cppm
+      src/api/routes/HealthRoutes.cppm
 )
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib)

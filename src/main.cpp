@@ -10,8 +10,7 @@
 import version;
 import HttpServer;
 import Router;
-
-#include "httplib.h"
+import HealthRoutes;
 
 #include <print>
 
@@ -25,9 +24,7 @@ int main() {
     nubilo::HttpServer server(8080);
     nubilo::Router router;
 
-    router.addRoute("GET", "/health", [](const httplib::Request& req, httplib::Response& res) {
-        res.set_content(R"({"status"}:"ok")", "application/json");
-    });
+    nubilo::registerHealthRoutes(router);
 
     router.applyTo(server.getServer());
     server.run();
