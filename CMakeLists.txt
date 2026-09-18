@@ -19,11 +19,11 @@ FetchContent_MakeAvailable(httplib)
 add_executable(nubilo src/main.cpp)
 target_sources(nubilo 
   PUBLIC
-    FILE_SET CXX_MODULES FILES
-      src/version.cppm
-      src/api/HttpServer.cppm
-      src/api/Router.cppm
-      src/api/routes/HealthRoutes.cppm
+        FILE_SET CXX_MODULES FILES
+        src/version.cpp
+        src/api/HttpServer.cppm
+        src/api/Router.cppm
+        src/api/routes/HealthRoutes.cppm
 )
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib)
