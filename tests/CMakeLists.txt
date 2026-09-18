@@ -8,6 +8,8 @@ target_sources(nubilo_tests
         FILES
             ${CMAKE_SOURCE_DIR}/src/version.cppm
             ${CMAKE_SOURCE_DIR}/src/api/HttpServer.cppm
+            ${CMAKE_SOURCE_DIR}/src/api/Router.cppm
+            ${CMAKE_SOURCE_DIR}/src/api/routes/HealthRoutes.cppm
 )
 
 target_compile_options(nubilo_tests PRIVATE -Wall -Wextra)
