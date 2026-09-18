@@ -4,14 +4,21 @@
  */
 
 import HttpServer;
+import HealthRoutes;
+import Router;
 
 #include <gtest/gtest.h>
 #include <httplib.h>
 #include <thread>
 
+
 TEST(HttpServerTest, HealthEndpointReturnsOk) {
     constexpr int testPort = 8081;
+
     nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerHealthRoutes(router);
+    router.applyTo(server.getServer());
 
     // run() blocks, so it needs its own thread to not freeze the test
     std::thread serverThread([&server]() { server.run(); });

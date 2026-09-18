@@ -9,6 +9,8 @@
 
 import version;
 import HttpServer;
+import Router;
+import HealthRoutes;
 
 #include <print>
 
@@ -20,6 +22,11 @@ int main() {
     std::println("Nubilo backend {} starting...", nubilo::getVersion());
 
     nubilo::HttpServer server(8080);
+    nubilo::Router router;
+
+    nubilo::registerHealthRoutes(router);
+
+    router.applyTo(server.getServer());
     server.run();
 
     return 0;
