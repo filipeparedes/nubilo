@@ -1,6 +1,6 @@
 #include "api/Router.h"
 #include "api/HttpServer.h"
-#include "api/router/HealthRouter.h"
+#include "api/routes/HealthRoutes.h"
 #include "version.h"
 
 #include <print>

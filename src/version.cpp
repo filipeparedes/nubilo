@@ -1,4 +1,4 @@
-#include "version.h";
+#include "version.h"
 
 namespace nubilo {
 

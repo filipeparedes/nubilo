@@ -15,16 +15,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(httplib)
 
-add_executable(nubilo src/main.cpp)
-target_sources(nubilo 
-  PUBLIC
-
-        FILE_SET CXX_MODULES FILES
-        src/version.cpp
-        src/api/HttpServer.cpp
-        src/api/Router.cpp
-        src/api/routes/HealthRoutes.cpp
+add_executable(nubilo
+    src/main.cpp
+    src/version.cpp
+    src/api/HttpServer.cpp
+    src/api/Router.cpp
+    src/api/routes/HealthRoutes.cpp
 )
+
+target_include_directories(nubilo PRIVATE include)
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib)
 
