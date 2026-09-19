@@ -2,12 +2,14 @@
 #include "api/Router.h"
 
 #include <httplib.h>
+#include <nlohmann/json.hpp>
 
 namespace nubilo {
 
 void registerHealthRoutes(Router& router) {
     router.addRoute("GET", "/health", [](const httplib::Request&, httplib::Response& res) {
-        res.set_content(R"({"status":"ok"})", "application/json");
+        nlohmann::json body = {{"status", "ok"}};
+        res.set_content(body.dump(), "application/json");
     });
 }
 

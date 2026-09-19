@@ -15,6 +15,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(httplib)
 
+# ---- JSON library ----
+FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(json)
+
 add_executable(nubilo
     src/main.cpp
     src/version.cpp
@@ -25,7 +33,7 @@ add_executable(nubilo
 
 target_include_directories(nubilo PRIVATE include)
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
-target_link_libraries(nubilo PRIVATE httplib::httplib)
+target_link_libraries(nubilo PRIVATE httplib::httplib nlohmann_json::nlohmann_json)
 
 # ---- TESTING ---
 FetchContent_Declare(
