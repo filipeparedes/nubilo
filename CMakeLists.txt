@@ -23,7 +23,7 @@ target_sources(nubilo
         FILE_SET CXX_MODULES FILES
         src/version.cpp
         src/api/HttpServer.cpp
-        src/api/Router.cppm
+        src/api/Router.cpp
         src/api/routes/HealthRoutes.cppm
 )
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
