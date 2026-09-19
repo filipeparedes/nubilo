@@ -8,14 +8,25 @@ codebase.
 - **Classes / structs:** `PascalCase` (e.g. `SyncEngine`, `FileMetadata`)
 - **Functions / variables:** `camelCase` (e.g. `computeHash`, `filePath`)
 - **Constants:** `UPPER_CASE` (e.g. `MAX_CHUNK_SIZE`)
-- **Files**: match the primary class they contain, `PascalCase.cppm` (e.g. `SyncEngine.cppm`). Files with free functions only use `camelCase.cppm` (e.g. `hashUtils.cppm`). 
-- **Namespaces:** all project code lives under the `nubilo` namespace.
+- **Files:** match the primary class they contain, `PascalCase.h` /
+  `PascalCase.cpp` (e.g. `HttpServer.h` / `HttpServer.cpp`). Files with
+  free functions only use `camelCase.h` / `camelCase.cpp` (e.g.
+  `hashUtils.h` / `hashUtils.cpp`). Every component's declaration lives
+  under `include/`, mirrored by its implementation under `src/`, at the
+  same relative path (e.g. `include/api/Router.h` +
+  `src/api/Router.cpp`), applied consistently regardless of file size.
+- - **Namespaces:** all project code lives under the `nubilo` namespace.
 
 ## Documentation
 
-- Every file, class, struct, and function must have a Doxygen comment
+- Every class, struct, and function declaration in header files must have a Doxygen comment
   (`/** ... */`) describing its purpose,
   explaining *why* it exists, *what* it's responsible for and *how* to use it.
+- File-level header blocks (`@file`, `@author`, `@copyright`, `@version`,
+    `@date`) are not used as git history already covers authorship and
+    change dates more reliably than a static comment. Doxygen is applied
+    only where it adds something beyond the name of a function, class, or
+    struct.
 - Non-obvious or important blocks of logic within a function should have a
   short inline comment explaining intent.
 - Trivial getters/setters and self-explanatory one-liners don't need a full
@@ -45,17 +56,29 @@ codebase.
 - Prefer passing non-trivial types (strings, vectors, custom structs) by
   `const&` rather than by value, unless a copy is genuinely needed.
 
-## Modules
+## Headers & Includes
 
-- Project code is organized as C++20 modules, not header/source pairs.
-- Module interface files use the `.cppm` extension; match the filename to
-  the primary class/component it exports.
-- One module per logical component (e.g. `SyncEngine.cppm`,
-  `FileMetadata.cppm`). Use module partitions (`module SyncEngine:Internal;`)
-  if a module grows large enough to need internal-only splitting.
-- `ìmport std;` is **not used** in this project, as it requires CMake 3.30+ with libc++ built with module support,
-  confirmed unavailable on the project's toolchain (CMake 3.28). Standard library headers are included via a 
-  global module fragment instead:
+- `#pragma once` at the top of every header.
+- Every component's public interface lives in `include/<path>/Name.h`;
+  its implementation lives in `src/<path>/Name.cpp`, mirroring the same
+  relative path. Applied to every file, including small ones. No
+  exceptions based on size, to keep navigation predictable.
+- Use a forward declaration (`class Foo;`) instead of `#include`-ing a
+  type's full header whenever a file only needs a reference or pointer
+  to that type, not the full type, no method calls on it, not stored by
+  value. This reduces include bloat and cascading recompilation when the
+  included header changes. Include the full header only where the
+  complete type is actually needed (e.g. calling its methods, storing it
+  by value as a class member).
+- Include order: matching header first (in `.cpp` files, in quotes), then
+  C++ standard library, then third-party libraries, then other project
+  headers, each group separated by a blank line.
+- No `using namespace std;` in headers (acceptable sparingly in `.cpp`
+  files if it genuinely improves readability).
+- Third-party headers whose types are stored by value as class members
+  (e.g. `httplib::Server`) must be included in that class's own header,
+  not just its `.cpp` — the compiler needs the complete type to know the
+  class's size.
 
 ```cpp
 module;

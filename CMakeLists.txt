@@ -4,7 +4,6 @@ project (nubilo LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
@@ -16,15 +15,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(httplib)
 
-add_executable(nubilo src/main.cpp)
-target_sources(nubilo 
-  PUBLIC
-    FILE_SET CXX_MODULES FILES
-      src/version.cppm
-      src/api/HttpServer.cppm
-      src/api/Router.cppm
-      src/api/routes/HealthRoutes.cppm
+add_executable(nubilo
+    src/main.cpp
+    src/version.cpp
+    src/api/HttpServer.cpp
+    src/api/Router.cpp
+    src/api/routes/HealthRoutes.cpp
 )
+
+target_include_directories(nubilo PRIVATE include)
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib)
 
