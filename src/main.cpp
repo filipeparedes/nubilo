@@ -1,16 +1,7 @@
-/**
- * @file main.cpp
- * @brief Entry point for the Nubilo backend.
- *
- * @author Filipe Paredes (filipeparedes3@gmail.com)
- *
- * @copyright Copyright (c) 2026
- */
-
-import version;
-import HttpServer;
-import Router;
-import HealthRoutes;
+#include "api/Router.h"
+#include "api/HttpServer.h"
+#include "api/router/HealthRouter.h"
+#include "version.h"
 
 #include <print>
 
