@@ -1,4 +1,4 @@
-import version;
+#include <version.h>
 
 #include <gtest/gtest.h>
 

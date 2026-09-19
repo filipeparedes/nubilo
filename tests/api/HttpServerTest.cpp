@@ -1,11 +1,6 @@
-/**
- * @file HttpServerTest.cpp
- * @brief Integration test for the HttpServer's health-check endpoint.
- */
-
-import HttpServer;
-import HealthRoutes;
-import Router;
+#include "api/HttpServer.h"
+#include "api/routes/HealthRoutes.h"
+#include "api/Router.h"
 
 #include <gtest/gtest.h>
 #include <httplib.h>
