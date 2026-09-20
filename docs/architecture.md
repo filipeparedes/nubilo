@@ -65,6 +65,42 @@ Each module is expected to expose a narrow internal interface, so that if the
 project ever needed to extract a module into its own service (e.g. the sync
 engine as a background daemon), the boundary is already there.
 
+## Storage
+
+The storage module is responsible for everything the system needs to
+persist: user accounts, file metadata, sync state, and, starting in
+Phase 4, the file content itself. It's split into two distinct pieces,
+each backed by a different mechanism.
+
+### SQLite for metadata
+
+The `SqliteDb` class wraps a single SQLite connection with RAII: opened
+once at startup, closed automatically on shutdown. Schema changes are
+applied through `DbMigrator`, which tracks which migrations have already
+run in a `schema_migrations` table and applies any new ones (defined in
+`Migrations.h`) in order, each wrapped in a transaction (`DbTransaction`)
+so a failure partway through a migration leaves the schema untouched
+rather than half-updated.
+
+Reads and writes go through `SqliteDb::exec()` for statements with no
+result set, and `SqliteDb::query()` for `SELECT`s, which returns rows as
+JSON, one object per row, keyed by column name, rather than a bespoke
+result-set type, since `nlohmann::json` already handles values of
+different types across rows and columns.
+
+### Metadata vs content separation
+
+The database (SQLite) stores only metadata, file paths, sizes, hashes,
+ownership, sync state, and (starting in Phase 4) chunk manifests. It never
+stores file content directly as a BLOB.
+
+Actual file bytes live on the filesystem, managed by the application
+itself as content-addressed storage (files named by their own hash) — the
+same pattern Git and Dropbox use internally. This keeps the database small
+and fast regardless of how much data is synced, and is a prerequisite for
+chunk-level deduplication (Phase 4): a chunk can be shared across files and
+users by reference (its hash) without duplicating it in the database.
+
 ## Tech stack
 
 - **Language:** C++23

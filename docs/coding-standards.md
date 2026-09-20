@@ -109,6 +109,21 @@ export namespace nubilo {
   DB calls, etc.), this overlaps with the Definition of Done's
   correctness checks.
 
+## Fallible construction
+
+- Any type whose creation can genuinely fail (opening a file, a database
+  connection, beginning a transaction) uses a private constructor plus a
+  static factory method returning `std::expected<T, ErrorType>`, never a
+  public constructor that throws or silently produces an invalid object.
+  See `SqliteDb::open()` and `DbTransaction::begin()`.
+- Such types are non-copyable (`= delete` on the copy constructor and copy
+  assignment) when they own a unique resource, but movable (`noexcept` move
+  constructor/assignment) so they can be returned out of their factory
+  method and stored in containers like `std::expected` or `std::vector`.
+- Getters and other side-effect-free accessors are marked `[[nodiscard]]`, a call whose only purpose is to read a value should never be legal to
+  ignore. `void`-returning functions with a real side effect (e.g. `exec()`)
+  don't need it.
+
 ## Miscellaneous
 
 - Use `nullptr`, never `NULL` or `0`, for null pointers.
