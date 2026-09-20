@@ -40,7 +40,7 @@ std::expected<void, DbError> DbMigrator::applyMigration(const Migration &migrati
         return execResult;
 
     std::string insertSql =
-        "INSERT INTO schema_migrations (version) VALUES {" + std::to_string(migration.version) + "};";
+        "INSERT INTO schema_migrations (version) VALUES (" + std::to_string(migration.version) + ");";
     auto insertResult = db_.exec(insertSql);
     if (!insertResult)
         return insertResult;
