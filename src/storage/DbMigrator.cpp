@@ -28,7 +28,7 @@ std::expected<std::vector<int>, DbError> DbMigrator::getAppliedVersions() {
     return versions;
 }
 
-std::expected<void, DbError> DbMigrator::applyMigration(const Migration &migration) {
+std::expected<void, DbError> DbMigrator::applyMigration(const DbMigration &migration) {
     auto txResult = DbTransaction::begin(db_);
     if (!txResult)
         return std::unexpected(txResult.error());
@@ -48,7 +48,7 @@ std::expected<void, DbError> DbMigrator::applyMigration(const Migration &migrati
     return tx.commit();
 }
 
-std::expected<void, DbError> DbMigrator::run(const std::vector<Migration>& migrations) {
+std::expected<void, DbError> DbMigrator::run(const std::vector<DbMigration>& migrations) {
     auto tableResult = ensureMigrationsTableExists();
     if (!tableResult)
         return tableResult;

@@ -21,7 +21,7 @@ TEST(DbMigratorTest, AppliesMigrationsInOrder) {
     nubilo::SqliteDb db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
-    std::vector<nubilo::Migration> migrations = {
+    std::vector<nubilo::DbMigration> migrations = {
         {1, "CREATE TABLE test (id INTEGER);"},
         {2, "ALTER TABLE test ADD COLUMN name TEXT;"},
     };
@@ -42,7 +42,7 @@ TEST(DbMigratorTest, SkipsAlreadyAppliedMigrations) {
     nubilo::SqliteDb db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
-    std::vector<nubilo::Migration> migrations = {
+    std::vector<nubilo::DbMigration> migrations = {
         {1, "CREATE TABLE test (id INTEGER);"},
     };
 
