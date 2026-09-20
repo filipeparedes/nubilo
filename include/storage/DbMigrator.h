@@ -10,10 +10,10 @@
 namespace nubilo {
 
 /**
- * @struct Migration
+ * @struct DbMigration
  * @brief A single schema change: a version number and the SQL to apply it.
  */
-struct Migration {
+struct DbMigration {
     int version;
     std::string sql;
 };
@@ -32,7 +32,7 @@ public:
      * @param migrations The full list of migrations the schema should have.
      * @return Nothing on success, or a DbError on the first failure encountered.
      */
-std::expected<void, DbError> run(const std::vector<Migration>& migrations);
+std::expected<void, DbError> run(const std::vector<DbMigration>& migrations);
 
 private:
     /**
@@ -52,7 +52,7 @@ private:
      * @param migration The migration to apply.
      * @return Nothing on success, or a DbError on failure.
      */
-    std::expected<void, DbError> applyMigration(const Migration& migration);
+    std::expected<void, DbError> applyMigration(const DbMigration& migration);
 
     SqliteDb& db_;
 };
