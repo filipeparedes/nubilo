@@ -3,6 +3,7 @@
 #include "storage/DbError.h"
 
 #include <expected>
+#include <nlohmann/json.hpp>
 #include <sqlite3.h>
 #include <string>
 
@@ -44,6 +45,14 @@ public:
      * @return Nothing on success, or a DbError on failure.
      */
     std::expected<void, DbError> exec(const std::string& sql);
+
+    /**
+     * @brief Runs a SELECT query and returns the result set as JSON.
+     * One array element per row, each row a JSON object mapping column name to value.
+     * @param sql The SELECT statement to run.
+     * @return  The result rows as a JSON array, or a DbError on failure.
+     */
+    [[nodiscard]] std::expected<nlohmann::json, DbError> query(const std::string& sql);
 
     /**
      * @brief Exposes the raw sqlite3 handle, for code that needs lower-level access
