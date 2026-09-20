@@ -61,6 +61,26 @@ public:
      */
     [[nodiscard]] sqlite3* handle() const;
 
+    // --------- TRANSACTIONS -------------
+
+    /**
+     * @brief Begins a SQL transaction.
+     * @return Nothing on success, DbError on failure.
+     */
+    std::expected<void, DbError> beginTx();
+
+    /**
+     * @brief Commits the current transaction.
+     * @return Nothing on success, DbError on failure.
+     */
+    std::expected<void, DbError> commitTx();
+
+    /**
+     * @brief Rolls back the current transaction, undoing any changes made since beginTransaction().
+     * @return
+     */
+    std::expected<void, DbError> rollbackTx();
+
 private:
     explicit SqliteDb(sqlite3* db);
     sqlite3* db_ = nullptr;

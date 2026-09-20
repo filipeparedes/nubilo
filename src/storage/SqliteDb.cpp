@@ -98,4 +98,30 @@ sqlite3* SqliteDb::handle() const {
     return db_;
 }
 
+// ----- TRANSACTIONS --------
+
+std::expected<void, DbError> SqliteDb::beginTx() {
+    auto result = exec("BEGIN;");
+    if (!result)
+        return std::unexpected(DbError{"Failed to begin transaction: " + result.error().msg});
+
+    return result;
+}
+
+std::expected<void, DbError> SqliteDb::commitTx() {
+    auto result = exec("COMMIT;");
+    if (!result)
+        return std::unexpected(DbError{"Failed to commit transaction: " + result.error().msg});
+
+    return result;
+}
+
+std::expected<void, DbError> SqliteDb::rollbackTx() {
+    auto result = exec("ROLLBACK;");
+    if (!result)
+        return std::unexpected(DbError{"Failed to rollback transaction: " + result.error().msg});
+
+    return result;
+}
+
 }
