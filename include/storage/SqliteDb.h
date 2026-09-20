@@ -43,10 +43,10 @@ public:
      * (e.g. prepared statements for SELECT queries).
      * @return
      */
-    sqlite3* handle();
+    [[nodiscard]] sqlite3* handle() const;
 
 private:
-    sqlite3* db_;
+    sqlite3* db_ = nullptr;
 };
 
 }
