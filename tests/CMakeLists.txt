@@ -7,8 +7,10 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/api/routes/HealthRoutes.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/SqliteDb.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/DbTransaction.cpp
+        ${CMAKE_SOURCE_DIR}/src/storage/DbMigrator.cpp
         storage/SqliteDbTest.cpp
         storage/DbTransactionTest.cpp
+        storage/DbMigratorTest.cpp
 )
 
 target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
