@@ -53,7 +53,7 @@ public:
     [[nodiscard]] sqlite3* handle() const;
 
 private:
-    explicit SqliteDb(const std::string& path);
+    explicit SqliteDb(sqlite3* db);
     sqlite3* db_ = nullptr;
 };
 
