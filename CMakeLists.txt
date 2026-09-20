@@ -42,6 +42,7 @@ add_executable(nubilo
     src/api/Router.cpp
     src/api/routes/HealthRoutes.cpp
         src/storage/SqliteDb.cpp
+        src/storage/DbMigrator.cpp
 )
 
 target_include_directories(nubilo PRIVATE include)
