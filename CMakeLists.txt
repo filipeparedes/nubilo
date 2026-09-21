@@ -63,6 +63,7 @@ add_executable(nubilo
         src/storage/DbMigrator.cpp
         src/storage/DbTransaction.cpp
         src/api/ErrorResponse.cpp
+        src/auth/passwordHash.cpp
 )
 
 target_include_directories(nubilo PRIVATE include)
