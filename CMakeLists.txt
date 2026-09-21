@@ -35,6 +35,24 @@ FetchContent_MakeAvailable(sqlite3)
 add_library(sqlite3 STATIC ${sqlite3_SOURCE_DIR}/sqlite3.c)
 target_include_directories(sqlite3 PUBLIC ${sqlite3_SOURCE_DIR})
 
+# ---- Argon 2 -----
+FetchContent_Declare(
+        argon2
+        GIT_REPOSITORY https://github.com/P-H-C/phc-winner-argon2.git
+        GIT_TAG 20190702
+)
+FetchContent_MakeAvailable(argon2)
+
+add_library(argon2 STATIC
+        ${argon2_SOURCE_DIR}/src/argon2.c
+        ${argon2_SOURCE_DIR}/src/core.c
+        ${argon2_SOURCE_DIR}/src/blake2/blake2b.c
+        ${argon2_SOURCE_DIR}/src/thread.c
+        ${argon2_SOURCE_DIR}/src/encoding.c
+        ${argon2_SOURCE_DIR}/src/ref.c
+)
+target_include_directories(argon2 PUBLIC ${argon2_SOURCE_DIR}/include)
+
 add_executable(nubilo
     src/main.cpp
     src/version.cpp
@@ -49,7 +67,7 @@ add_executable(nubilo
 
 target_include_directories(nubilo PRIVATE include)
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
-target_link_libraries(nubilo PRIVATE httplib::httplib nlohmann_json::nlohmann_json sqlite3)
+target_link_libraries(nubilo PRIVATE httplib::httplib nlohmann_json::nlohmann_json sqlite3 argon2)
 
 # ---- TESTING ---
 FetchContent_Declare(
