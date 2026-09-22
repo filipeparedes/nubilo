@@ -45,4 +45,10 @@ std::expected<std::string, HashError> encodePassword(const std::string& password
     return std::string(encodedHash);
 }
 
+bool verifyPassword(const std::string& encodedHash, const std::string& password) {
+    int result = argon2id_verify(encodedHash.c_str(), password.c_str(), password.length());
+
+    return result == ARGON2_OK;
+}
+
 }
