@@ -114,6 +114,10 @@ std::expected<nlohmann::json, DbError> SqliteDb::query(const std::string& sql) {
     return rows;
 }
 
+int64_t SqliteDb::lastInsertId() const {
+    return sqlite3_last_insert_rowid(db_);
+}
+
 sqlite3* SqliteDb::handle() const {
     return db_;
 }

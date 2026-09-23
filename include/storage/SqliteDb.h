@@ -56,6 +56,12 @@ public:
     [[nodiscard]] std::expected<nlohmann::json, DbError> query(const std::string& sql);
 
     /**
+     * Returns the row id of the most recent successful INSERT on this connection.
+     * @return The row id, or 0 if no INSERT has happened yet.
+     */
+    [[nodiscard]] int64_t lastInsertId() const;
+
+    /**
      * @brief Exposes the raw sqlite3 handle, for code that needs lower-level access
      * (e.g. prepared statements for SELECT queries).
      * @returns The underlying sqlite handle
