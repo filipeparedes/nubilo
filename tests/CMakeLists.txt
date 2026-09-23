@@ -10,11 +10,13 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/storage/DbTransaction.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/DbMigrator.cpp
         ${CMAKE_SOURCE_DIR}/src/auth/passwordHash.cpp
+        ${CMAKE_SOURCE_DIR}/src/auth/authService.cpp
         storage/SqliteDbTest.cpp
         storage/DbTransactionTest.cpp
         storage/DbMigratorTest.cpp
         api/ErrorResponseTest.cpp
         auth/passwordHashTest.cpp
+        auth/authServiceTest.cpp
 )
 
 target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
