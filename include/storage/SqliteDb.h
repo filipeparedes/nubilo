@@ -42,9 +42,10 @@ public:
      * @brief Executes a SQL statement with no expected result rows
      * (CREATE TABLE, INSERT, UPDATE, etc..)
      * @param sql The SQL statement to execute.
+     * @param params (optional) SQL statement parameter values
      * @return Nothing on success, or a DbError on failure.
      */
-    std::expected<void, DbError> exec(const std::string& sql);
+    std::expected<void, DbError> exec(const std::string& sql, const std::vector<std::string>& params = {});
 
     /**
      * @brief Runs a SELECT query and returns the result set as JSON.

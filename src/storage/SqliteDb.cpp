@@ -33,13 +33,33 @@ SqliteDb& SqliteDb::operator=(SqliteDb&& other) noexcept {
     return *this;
 }
 
-std::expected<void, DbError> SqliteDb::exec(const std::string& sql) {
+std::expected<void, DbError> SqliteDb::exec(const std::string& sql, const std::vector<std::string>& params) {
     char* errMsg = nullptr;
-    if (sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        DbError error{errMsg ? errMsg : "unknown error"};
-        sqlite3_free(errMsg);
-        return std::unexpected(error);
+
+    // no params -> run sql directly
+    if (params.empty()) {
+        if (sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            DbError error{errMsg ? errMsg : "unknown error"};
+            sqlite3_free(errMsg);
+            return std::unexpected(error);
+        }
+    } else {
+        // has params -> prepared statement to avoid SQL injection
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+            return std::unexpected(DbError{sqlite3_errmsg(db_)});
+
+        //bind each param to its '?' placeholder
+        for (size_t i=0; i<params.size(); ++i)
+            sqlite3_bind_text(stmt, static_cast<int>(i+1), params[i].c_str(), -1, SQLITE_TRANSIENT);
+
+        int stepRes = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (stepRes != SQLITE_DONE)
+            return std::unexpected(DbError{sqlite3_errmsg(db_)});
     }
+
     return {};
 }
 
