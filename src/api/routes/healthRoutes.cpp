@@ -1,4 +1,4 @@
-#include "api/routes/HealthRoutes.h"
+#include "api/routes/healthRoutes.h"
 #include "api/Router.h"
 
 #include <httplib.h>

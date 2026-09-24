@@ -42,9 +42,10 @@ public:
      * @brief Executes a SQL statement with no expected result rows
      * (CREATE TABLE, INSERT, UPDATE, etc..)
      * @param sql The SQL statement to execute.
+     * @param params (optional) SQL statement parameter values
      * @return Nothing on success, or a DbError on failure.
      */
-    std::expected<void, DbError> exec(const std::string& sql);
+    std::expected<void, DbError> exec(const std::string& sql, const std::vector<std::string>& params = {});
 
     /**
      * @brief Runs a SELECT query and returns the result set as JSON.
@@ -53,6 +54,12 @@ public:
      * @return  The result rows as a JSON array, or a DbError on failure.
      */
     [[nodiscard]] std::expected<nlohmann::json, DbError> query(const std::string& sql);
+
+    /**
+     * Returns the row id of the most recent successful INSERT on this connection.
+     * @return The row id, or 0 if no INSERT has happened yet.
+     */
+    [[nodiscard]] int64_t lastInsertId() const;
 
     /**
      * @brief Exposes the raw sqlite3 handle, for code that needs lower-level access

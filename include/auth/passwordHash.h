@@ -6,7 +6,7 @@
 namespace nubilo {
 
 struct HashError {
-    std::string message;
+    std::string msg;
 };
 
 /**

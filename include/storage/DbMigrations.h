@@ -25,6 +25,10 @@ inline const std::vector<DbMigration> migrations = {
      "  path TEXT NOT NULL,"
      "  FOREIGN KEY (owner_id) REFERENCES users(id)"
      ");"},
+    {
+    3,
+    "ALTER TABLE users ADD COLUMN password_hash TEXT NOT NULL DEFAULT '';"
+    },
 };
 
 }
