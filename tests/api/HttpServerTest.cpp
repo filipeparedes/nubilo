@@ -1,6 +1,6 @@
 #include "api/HttpServer.h"
-#include "api/routes/HealthRoutes.h"
 #include "api/Router.h"
+#include "api/routes/healthRoutes.h"
 
 #include <gtest/gtest.h>
 #include <httplib.h>

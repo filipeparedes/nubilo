@@ -1,7 +1,7 @@
 #include "api/HttpServer.h"
 #include "api/Router.h"
-#include "api/routes/HealthRoutes.h"
 #include "api/routes/authRoutes.h"
+#include "api/routes/healthRoutes.h"
 #include "storage/DbMigrations.h"
 #include "storage/DbMigrator.h"
 #include "storage/SqliteDb.h"

@@ -5,7 +5,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/api/HttpServer.cpp
         ${CMAKE_SOURCE_DIR}/src/api/Router.cpp
         ${CMAKE_SOURCE_DIR}/src/api/ErrorResponse.cpp
-        ${CMAKE_SOURCE_DIR}/src/api/routes/HealthRoutes.cpp
+        ${CMAKE_SOURCE_DIR}/src/api/routes/healthRoutes.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/SqliteDb.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/DbTransaction.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/DbMigrator.cpp
