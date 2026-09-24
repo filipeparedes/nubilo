@@ -65,6 +65,7 @@ add_executable(nubilo
         src/api/ErrorResponse.cpp
         src/auth/passwordHash.cpp
         src/auth/authService.cpp
+        src/api/routes/authRoutes.cpp
 )
 
 target_include_directories(nubilo PRIVATE include)
