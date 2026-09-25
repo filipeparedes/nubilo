@@ -42,7 +42,7 @@ static void handleUserRegistration(SqliteDb& db, const httplib::Request& req, ht
     //hand off to business logic layer
     auto regRes = registerUser(db, body.at("email"), body.at("password"));
     if (!regRes) {
-        int status = regRes.error().type == RegisterError::Type::EmailAlreadyExists ? 409 : 500;
+        int status = regRes.error().type == AuthError::Type::EmailAlreadyExists ? 409 : 500;
         writeErrorResponse(res, status, "REGISTRATION_FAILED", "Could not register user.");
         return;
     }

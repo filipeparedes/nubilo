@@ -8,13 +8,13 @@
 namespace nubilo {
 
 /**
- * @struct RegisterError
+ * @struct AuthError
  * @brief Error returned when user registration fails.
  *
  * type distinguishes cases the caller needs to handle differently
  * e.g. mapping to different HTTP status codes, w/o needing to db error messages
  */
-struct RegisterError {
+struct AuthError {
     enum class Type { EmailAlreadyExists, DatabaseError } type;
     std::string msg;
 };
@@ -27,6 +27,8 @@ struct RegisterError {
  * @param password The new user's plaintext password.
  * @return The new user's id on success, or a RegisterError on failure.
  */
-std::expected<int64_t, RegisterError> registerUser(SqliteDb& db, const std::string& email, const std::string& password);
+std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& email, const std::string& password);
+
+
 
 }
