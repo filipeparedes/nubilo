@@ -44,4 +44,21 @@ std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& 
     return id;
 }
 
+std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::string& email, const std::string& password) {
+    auto queryRes = db.query("SELECT id, password_hash FROM users WHERE email = ?;", {email});
+    if (!queryRes)
+        return std::unexpected(AuthError{AuthError::Type::DatabaseError, queryRes.error().msg});
+
+    if (queryRes.value().empty() || !verifyPassword(queryRes.value()[0]["password_hash"].get<std::string>(), password))
+        return std::unexpected(AuthError{AuthError::Type::InvalidCredentials, "Invalid credentials."});
+
+    int64_t id = queryRes.value()[0]["id"].get<int64_t>();
+    auto token = genToken();
+
+    auto insertRes = db.exec("INSERT INTO sessions (token, user_id) VALUES (?, ?);", {token, std::to_string(id)});
+    if (!insertRes)
+        return std::unexpected(AuthError{AuthError::Type::DatabaseError, insertRes.error().msg});
+
+    return token;
+}
 }
