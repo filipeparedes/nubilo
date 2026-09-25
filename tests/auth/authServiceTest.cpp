@@ -49,7 +49,7 @@ TEST(AuthServiceTest, RegisterUserFailsWithDuplicateEmail) {
     auto second = nubilo::registerUser(db, "user@test.com", "differentPassword");
 
     ASSERT_FALSE(second.has_value());
-    EXPECT_EQ(second.error().type, nubilo::RegisterError::Type::EmailAlreadyExists);
+    EXPECT_EQ(second.error().type, nubilo::AuthError::Type::EmailAlreadyExists);
 
     std::filesystem::remove(path);
 }

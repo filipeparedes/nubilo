@@ -53,7 +53,7 @@ public:
      * @param sql The SELECT statement to run.
      * @return  The result rows as a JSON array, or a DbError on failure.
      */
-    [[nodiscard]] std::expected<nlohmann::json, DbError> query(const std::string& sql);
+    [[nodiscard]] std::expected<nlohmann::json, DbError> query(const std::string& sql, const std::vector<std::string>& params = {});
 
     /**
      * Returns the row id of the most recent successful INSERT on this connection.

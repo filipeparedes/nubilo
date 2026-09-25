@@ -144,3 +144,129 @@ TEST(AuthRoutesTest, RegisterRejectsInvalidEmailFormat) {
 
     std::filesystem::remove(dbPath);
 }
+
+TEST(AuthRoutesTest, LoginSucceedsWithCorrectCredentials) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8086;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    client.Post("/auth/register", R"({"email":"user@example.com","password":"password123"})", "application/json");
+    auto result = client.Post("/auth/login", R"({"email":"user@example.com","password":"password123"})", "application/json");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 200);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST(AuthRoutesTest, LoginRejectsWrongPassword) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8087;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    client.Post("/auth/register", R"({"email":"user@example.com","password":"password123"})", "application/json");
+    auto result = client.Post("/auth/login", R"({"email":"user@example.com","password":"wrongPassword"})", "application/json");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST(AuthRoutesTest, LoginRejectsNonexistentEmail) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8088;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto result = client.Post("/auth/login", R"({"email":"nobody@example.com","password":"password123"})", "application/json");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST(AuthRoutesTest, LoginRejectsMissingFields) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8089;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto result = client.Post("/auth/login", R"({"email":"user@example.com"})", "application/json");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 400);
+
+    std::filesystem::remove(dbPath);
+}

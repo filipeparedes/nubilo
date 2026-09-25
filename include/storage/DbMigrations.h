@@ -29,6 +29,14 @@ inline const std::vector<DbMigration> migrations = {
     3,
     "ALTER TABLE users ADD COLUMN password_hash TEXT NOT NULL DEFAULT '';"
     },
+    {4,
+        "CREATE TABLE sessions ("
+         "  token TEXT PRIMARY KEY,"
+         "  user_id INTEGER NOT NULL,"
+         "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+         "  FOREIGN KEY (user_id) REFERENCES users(id)"
+         ");"
+    },
 };
 
 }
