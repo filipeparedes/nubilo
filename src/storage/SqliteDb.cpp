@@ -63,12 +63,16 @@ std::expected<void, DbError> SqliteDb::exec(const std::string& sql, const std::v
     return {};
 }
 
-std::expected<nlohmann::json, DbError> SqliteDb::query(const std::string& sql) {
+std::expected<nlohmann::json, DbError> SqliteDb::query(const std::string& sql, const std::vector<std::string>& params) {
     sqlite3_stmt* stmt = nullptr;
 
     //compile sql into a prepared statement
     if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
         return std::unexpected(DbError{sqlite3_errmsg(db_)});
+
+    //bind each param to its '?' placeholder (SQLite params are 1-indexed)
+    for (size_t i = 0; i < params.size(); ++i)
+        sqlite3_bind_text(stmt, static_cast<int>(i + 1), params[i].c_str(), -1, SQLITE_TRANSIENT);
 
     nlohmann::json rows = nlohmann::json::array();
     int stepResult;
