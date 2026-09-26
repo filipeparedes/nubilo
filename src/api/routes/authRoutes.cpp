@@ -1,5 +1,6 @@
 #include "api/ErrorResponse.h"
 #include "api/Router.h"
+#include "api/middleware.h"
 #include "auth/authService.h"
 #include "storage/SqliteDb.h"
 
@@ -85,6 +86,16 @@ static void handleUserAuthentication(SqliteDb& db, const httplib::Request& req, 
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleSessionInvalidation(SqliteDb& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
+    auto result = invalidateSession(db, token);
+    if (!result) {
+        writeErrorResponse(res, 500, "LOGOUT_FAILED", "Could not invalidate session.");
+        return;
+    }
+
+    res.status = 200;
+}
+
 // ------------ ROUTE REGISTRATION ----------
 
 void registerAuthRoutes(Router& router, SqliteDb& db) {
@@ -94,6 +105,9 @@ void registerAuthRoutes(Router& router, SqliteDb& db) {
     router.addRoute("POST", "/auth/login", [&db](const httplib::Request& req, httplib::Response& res) {
        handleUserAuthentication(db, req, res);
     });
+    router.addRoute("POST", "/auth/logout", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleSessionInvalidation(db, req, res, token);
+    }));
 }
 
 }
