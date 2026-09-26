@@ -38,4 +38,12 @@ std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& 
  */
 std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::string& email, const std::string& password);
 
+/**
+ * @brief Attempts to invalidate a session (logout)
+ * @param db The database where the session is active
+ * @param token The session token
+ * @return Nothing on success, AuthError on failure
+ */
+std::expected<void, AuthError> invalidateSession(SqliteDb& db, const std::string& token);
+
 }
