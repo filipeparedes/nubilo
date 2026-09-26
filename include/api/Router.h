@@ -11,8 +11,8 @@ namespace nubilo {
 using RouteCallback = std::function<void(const httplib::Request&, httplib::Response&)>;
 
 //for routes that require authentication
-//assume that userId is valid and authenticated
-using AuthRouteCallback = std::function<void(const httplib::Request&, httplib::Response&, int64_t userId)>;
+//assume that the token is valid
+using AuthRouteCallback = std::function<void(const httplib::Request&, httplib::Response&, const std::string& token)>;
 
 struct Route {
     std::string method;
