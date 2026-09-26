@@ -61,4 +61,13 @@ std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::
 
     return token;
 }
+
+std::expected<void, AuthError> invalidateSession(SqliteDb& db, const std::string& token) {
+    auto delRes = db.exec("DELETE from sessions WHERE token = ?;", {token});
+    if (!delRes)
+        return std::unexpected(AuthError{AuthError::Type::DatabaseError, "Couldn't invalidate session."});
+
+    return {};
+}
+
 }

@@ -19,15 +19,14 @@ RouteCallback requireAuth(SqliteDb& db, AuthRouteCallback handler) {
         //extract the "a3f8c13..." part
         std::string token = authHeader.substr(prefix.size());
 
+        //verify token in sessions table
         auto queryRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
         if (!queryRes || queryRes.value().empty()) {
             writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
             return;
         }
 
-        //valid token
-        int64_t userId = queryRes.value()[0]["user_id"].get<int64_t>();
-        handler(req, res, userId);
+        handler(req, res, token);
     };
 }
 

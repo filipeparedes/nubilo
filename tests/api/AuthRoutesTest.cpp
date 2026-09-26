@@ -9,6 +9,7 @@
 #include <httplib.h>
 #include <filesystem>
 #include <thread>
+#include <nlohmann/json.hpp>
 
 namespace {
 
@@ -267,6 +268,112 @@ TEST(AuthRoutesTest, LoginRejectsMissingFields) {
 
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 400);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST(AuthRoutesTest, LogoutInvalidatesSessionWithValidToken) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8090;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    client.Post("/auth/register", R"({"email":"user@example.com","password":"password123"})", "application/json");
+    auto loginResult = client.Post("/auth/login", R"({"email":"user@example.com","password":"password123"})", "application/json");
+    ASSERT_TRUE(loginResult);
+    std::string token = nlohmann::json::parse(loginResult->body)["token"];
+
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+    auto logoutResult = client.Post("/auth/logout", headers, "", "");
+
+    // Using the same token again should now be rejected
+    auto secondLogout = client.Post("/auth/logout", headers, "", "");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(logoutResult);
+    EXPECT_EQ(logoutResult->status, 200);
+
+    ASSERT_TRUE(secondLogout);
+    EXPECT_EQ(secondLogout->status, 401);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST(AuthRoutesTest, LogoutRejectsMissingToken) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8091;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto result = client.Post("/auth/logout", "", "");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST(AuthRoutesTest, LogoutRejectsInvalidToken) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::SqliteDb db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8092;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    httplib::Headers headers = {{"Authorization", "Bearer not-a-real-token"}};
+    auto result = client.Post("/auth/logout", headers, "", "");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
 
     std::filesystem::remove(dbPath);
 }
