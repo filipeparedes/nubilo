@@ -11,6 +11,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/auth/passwordHash.cpp
         ${CMAKE_SOURCE_DIR}/src/auth/authService.cpp
         ${CMAKE_SOURCE_DIR}/src/api/routes/authRoutes.cpp
+        ${CMAKE_SOURCE_DIR}/src/api/middleware.cpp
         storage/SqliteDbTest.cpp
         storage/DbTransactionTest.cpp
         storage/DbMigratorTest.cpp
