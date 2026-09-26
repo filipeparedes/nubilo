@@ -10,6 +10,10 @@ namespace nubilo {
 // signature every route callback/handler must match
 using RouteCallback = std::function<void(const httplib::Request&, httplib::Response&)>;
 
+//for routes that require authentication
+//assume that userId is valid and authenticated
+using AuthRouteCallback = std::function<void(const httplib::Request&, httplib::Response&, int64_t userId)>;
+
 struct Route {
     std::string method;
     std::string path;
