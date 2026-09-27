@@ -48,6 +48,15 @@ inline const std::vector<DbMigration> migrations = {
     "  FOREIGN KEY (file_id) REFERENCES files(id)"
     ");"
     },
+{6,
+    "CREATE TABLE sync_state ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  file_id INTEGER NOT NULL UNIQUE,"
+    "  last_synced_at TEXT,"
+    "  version INTEGER NOT NULL DEFAULT 1,"
+    "  FOREIGN KEY (file_id) REFERENCES files(id)"
+    ");"
+    },
 };
 
 }
