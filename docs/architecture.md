@@ -11,6 +11,8 @@ This document describes the high-level architecture and the reasoning behind
 it. Individual decisions with more detailed trade-off analysis live in
 [`decisions/`](./decisions) as ADRs (Architecture Decision Records).
 
+---
+
 ## Repository split
 
 The project is split across two repositories:
@@ -65,6 +67,8 @@ Each module is expected to expose a narrow internal interface, so that if the
 project ever needed to extract a module into its own service (e.g. the sync
 engine as a background daemon), the boundary is already there.
 
+---
+
 ## Storage
 
 The storage module is responsible for everything the system needs to
@@ -100,6 +104,25 @@ same pattern Git and Dropbox use internally. This keeps the database small
 and fast regardless of how much data is synced, and is a prerequisite for
 chunk-level deduplication (Phase 4): a chunk can be shared across files and
 users by reference (its hash) without duplicating it in the database.
+
+---
+
+## Authorization pattern
+
+Authentication (requireAuth) confirms *who* is making a request.
+Authorization confirms *what* they're allowed to access, these are
+different checks and both are required wherever a route operates on a
+specific resource (a file, a session, etc.) identified by an id.
+
+Any route that fetches or modifies a resource by id must verify that the
+resource belongs to the authenticated user (typically: the resource's
+owner_id/user_id column matches the id resolved from the request's
+token) before acting on it. Never trust an id from the request path or
+body alone. A resource not found and a resource that exists but belongs
+to someone else should both return 404, not 403, returning 403
+confirms to an attacker that the resource exists.
+
+---
 
 ## Tech stack
 
