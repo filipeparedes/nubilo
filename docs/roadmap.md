@@ -75,12 +75,11 @@ to adjust scope during implementation.
 - Per-endpoint authorization checks (users only access their own data)
 
 ## v0.3 (Sprint 3) (~68h)
-- Local file-state cache (tracked files + last known hash)
-- Whole-file SHA-256 hashing utility
-- Change detection loop (compare local state vs cache)
-- API client for server communication (upload/download changed files)
-- Diff computation between local and remote state
-- Groundwork for conflict detection (flagging, not resolving yet)
+- File upload endpoint
+- File download endpoint
+- List files endpoint
+- Delete file endpoint
+- Whole-file content storage on disk
 
 ## v0.4 (Sprint 4) (~68h)
 - File chunking algorithm (splitting files into blocks)
@@ -96,17 +95,29 @@ to adjust scope during implementation.
 - Version diffing (store only changed chunks per version)
 - Rollback mechanism (restore a previous version)
 
-## v0.6 (Sprint 6) (~68h)
+## v0.6 (Sprint 6) (nubilo + nubilo-client) (~68h)
 - Versioning completion: version listing endpoint, version comparison
-- Frontend project setup (Vite + React + TS, in `nubilo-client`)
+- Groundwork for conflict detection
+- API client for server communication
+- Diff computation between local and remote state
+- Change detection loop
+- Local file-state cache
+
+## v1.0 (Sprint 7) (nubilo-web + nubilo) (~67h)
+- Frontend project setup (Vite + React + TS, in `nubilo-web`)
 - Frontend: file browser / navigation UI
 - Frontend: upload/download UI
 - Frontend: file history view
 - Frontend: API integration layer (auth, fetching files)
-
-## v1.0 (Sprint 7) (~67h)
-- Real-time notifications (mechanism TBD: websockets vs polling)
-- File sharing between users (permissions model, share endpoint)
 - Final end-to-end integration testing pass
 - Documentation consolidation (final report, etc..)
 
+## Extras (if there is extra time available)
+- Real-time notifications (mechanism TBD: websockets vs polling) 
+- File sharing between users (permissions model, share endpoint)
+
+## Unplanned future releases
+- Multi-server replication and high availability
+- Email verification (send confirmation link/code)
+- Centralized logging to daily rotated files
+- CLI interface for Nubilo
