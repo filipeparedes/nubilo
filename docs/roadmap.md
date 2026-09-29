@@ -11,13 +11,13 @@ The hours in the development phases also account for any research/learning that 
 
 | # | Phase | Description | Hours 
 |---|-------|-------------|------|
-| 1 | REST API & Basic Persistence | HTTP server skeleton, routing, and the minimal SQLite schema needed to support it (general structure, not yet user-specific). | ~50h
+| 1 | REST API & Basic Persistence | HTTP server skeleton, routing, and the minimal SQLite schema needed to support it. | ~50h 
 | 2 | Authentication & Extended Persistence | Session/token-based auth, user table, and the rest of the metadata/sync-state schema. | ~50h 
-| 3 | Sync Client | Change detection and communication with the server. Uses a simple whole-file SHA-256 hash for change detection at this stage-full chunking comes in Phase 4. | ~60h 
-| 4 | File Chunking, Hashing & Deduplication | Splitting files into blocks, extending the simple hashing from Phase 3 into block-level hashing, and deduplication. The technical core of the project. | ~90h
+| 3 | File Endpoints & Storage | Upload, download, list, and delete endpoints; whole-file SHA-256 hashing; content-addressed storage on disk. Lives in nubilo. | ~60h 
+| 4 | File Chunking, Hashing & Deduplication | Splitting files into blocks, block-level hashing, and deduplication. The technical core of the project. | ~90h 
 | 5 | File Versioning | Tracking previous versions of a file, enabling rollback/history. | ~50h 
-| 6 | Frontend (TypeScript) | Navigation, file history, upload/download UI. Lives in the separate `nubilo-client` repository. | ~70h
-| 7 | Extensions | Real-time notifications and file sharing between users. Stretch goals, tackled once the core system is solid. | ~50h 
+| 6 | nubilo-client (Sync Client) | Local file-state cache, change detection, diffing and conflict groundwork. Lives in nubilo-client, a separate local executable. | ~70h 
+| 7 | nubilo-web & Extensions | Optional hosted frontend (nubilo-web), real-time notifications, and file sharing between users. Stretch goals, tackled once the core system is solid. | ~50h 
 
 **Subtotal:** ~420h
 
@@ -75,12 +75,11 @@ to adjust scope during implementation.
 - Per-endpoint authorization checks (users only access their own data)
 
 ## v0.3 (Sprint 3) (~68h)
-- Local file-state cache (tracked files + last known hash)
-- Whole-file SHA-256 hashing utility
-- Change detection loop (compare local state vs cache)
-- API client for server communication (upload/download changed files)
-- Diff computation between local and remote state
-- Groundwork for conflict detection (flagging, not resolving yet)
+- File upload endpoint
+- File download endpoint
+- List files endpoint
+- Delete file endpoint
+- Whole-file content storage on disk
 
 ## v0.4 (Sprint 4) (~68h)
 - File chunking algorithm (splitting files into blocks)
@@ -96,17 +95,29 @@ to adjust scope during implementation.
 - Version diffing (store only changed chunks per version)
 - Rollback mechanism (restore a previous version)
 
-## v0.6 (Sprint 6) (~68h)
+## v0.6 (Sprint 6) (nubilo + nubilo-client) (~68h)
 - Versioning completion: version listing endpoint, version comparison
-- Frontend project setup (Vite + React + TS, in `nubilo-client`)
+- Groundwork for conflict detection
+- API client for server communication
+- Diff computation between local and remote state
+- Change detection loop
+- Local file-state cache
+
+## v1.0 (Sprint 7) (nubilo-web + nubilo) (~67h)
+- Frontend project setup (Vite + React + TS, in `nubilo-web`)
 - Frontend: file browser / navigation UI
 - Frontend: upload/download UI
 - Frontend: file history view
 - Frontend: API integration layer (auth, fetching files)
-
-## v1.0 (Sprint 7) (~67h)
-- Real-time notifications (mechanism TBD: websockets vs polling)
-- File sharing between users (permissions model, share endpoint)
 - Final end-to-end integration testing pass
 - Documentation consolidation (final report, etc..)
 
+## Extras (if there is extra time available)
+- Real-time notifications (mechanism TBD: websockets vs polling) 
+- File sharing between users (permissions model, share endpoint)
+
+## Unplanned future releases
+- Multi-server replication and high availability
+- Email verification (send confirmation link/code)
+- Centralized logging to daily rotated files
+- CLI interface for Nubilo
