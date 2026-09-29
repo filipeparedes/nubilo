@@ -11,13 +11,13 @@ The hours in the development phases also account for any research/learning that 
 
 | # | Phase | Description | Hours 
 |---|-------|-------------|------|
-| 1 | REST API & Basic Persistence | HTTP server skeleton, routing, and the minimal SQLite schema needed to support it (general structure, not yet user-specific). | ~50h
+| 1 | REST API & Basic Persistence | HTTP server skeleton, routing, and the minimal SQLite schema needed to support it. | ~50h 
 | 2 | Authentication & Extended Persistence | Session/token-based auth, user table, and the rest of the metadata/sync-state schema. | ~50h 
-| 3 | Sync Client | Change detection and communication with the server. Uses a simple whole-file SHA-256 hash for change detection at this stage-full chunking comes in Phase 4. | ~60h 
-| 4 | File Chunking, Hashing & Deduplication | Splitting files into blocks, extending the simple hashing from Phase 3 into block-level hashing, and deduplication. The technical core of the project. | ~90h
+| 3 | File Endpoints & Storage | Upload, download, list, and delete endpoints; whole-file SHA-256 hashing; content-addressed storage on disk. Lives in nubilo. | ~60h 
+| 4 | File Chunking, Hashing & Deduplication | Splitting files into blocks, block-level hashing, and deduplication. The technical core of the project. | ~90h 
 | 5 | File Versioning | Tracking previous versions of a file, enabling rollback/history. | ~50h 
-| 6 | Frontend (TypeScript) | Navigation, file history, upload/download UI. Lives in the separate `nubilo-client` repository. | ~70h
-| 7 | Extensions | Real-time notifications and file sharing between users. Stretch goals, tackled once the core system is solid. | ~50h 
+| 6 | nubilo-client (Sync Client) | Local file-state cache, change detection, diffing and conflict groundwork. Lives in nubilo-client, a separate local executable. | ~70h 
+| 7 | nubilo-web & Extensions | Optional hosted frontend (nubilo-web), real-time notifications, and file sharing between users. Stretch goals, tackled once the core system is solid. | ~50h 
 
 **Subtotal:** ~420h
 
