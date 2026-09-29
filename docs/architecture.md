@@ -15,13 +15,23 @@ it. Individual decisions with more detailed trade-off analysis live in
 
 ## Repository split
 
-The project is split across two repositories:
+The project is split across three repositories:
 
-- **`nubilo`** (this repository) — the core: a standalone synchronization
+- **`nubilo`** (this repository) - the core: a standalone synchronization
   API written in C++. This is the actual subject of the project.
-- **`nubilo-client`** — an optional frontend (React + TypeScript) that
-  consumes the API. It exists mainly as a demonstration client, not as a
-  core deliverable.
+- **`nubilo-client`** - a local executable, run on the end user's own
+  machine: a CLI plus the real sync client (file-state cache, change
+  detection, diffing, conflict groundwork). This is the primary way a
+  user interacts with their synced files, closer in spirit to git/gh
+  than a typical desktop app.
+- **`nubilo-web`** - an optional, hosted React frontend, for interacting
+  with files through a browser without installing anything locally. It
+  talks to `nubilo` directly over HTTP and shares no code with
+  `nubilo-client`.
+
+See [ADR 0006](./decisions/0006-three-repo-split.md) for the reasoning
+behind this split, and [ADR 0001](./decisions/0001-separate-repos-backend-frontend.md)
+(now superseded) for the original two-repo decision.
 
 See [ADR 0001](./decisions/0001-separate-repos-backend-frontend.md) for the
 reasoning behind this split.
