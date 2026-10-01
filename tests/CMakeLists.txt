@@ -21,7 +21,7 @@ add_executable(nubilo_tests
         api/AuthRoutesTest.cpp
 )
 
-target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include ${picosha2_SOURCE_DIR})
 target_compile_options(nubilo_tests PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo_tests PRIVATE GTest::gtest_main httplib::httplib nlohmann_json::nlohmann_json sqlite3 argon2)
 
