@@ -42,7 +42,6 @@ FetchContent_Declare(
         GIT_TAG 20190702
 )
 FetchContent_MakeAvailable(argon2)
-
 add_library(argon2 STATIC
         ${argon2_SOURCE_DIR}/src/argon2.c
         ${argon2_SOURCE_DIR}/src/core.c
@@ -52,6 +51,15 @@ add_library(argon2 STATIC
         ${argon2_SOURCE_DIR}/src/ref.c
 )
 target_include_directories(argon2 PUBLIC ${argon2_SOURCE_DIR}/include)
+
+# --- picosha2 (SHA-256) ----
+FetchContent_Declare(
+        picosha2
+        GIT_REPOSITORY https://github.com/okdshin/PicoSHA2.git
+        GIT_TAG 161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29
+)
+FetchContent_MakeAvailable(picosha2)
+
 
 add_executable(nubilo
     src/main.cpp
@@ -67,9 +75,10 @@ add_executable(nubilo
         src/auth/authService.cpp
         src/api/routes/authRoutes.cpp
         src/api/middleware.cpp
+        src/blob/BlobStore.cpp
 )
 
-target_include_directories(nubilo PRIVATE include)
+target_include_directories(nubilo PRIVATE include ${picosha2_SOURCE_DIR})
 target_compile_options(nubilo PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo PRIVATE httplib::httplib nlohmann_json::nlohmann_json sqlite3 argon2)
 

@@ -12,6 +12,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/auth/authService.cpp
         ${CMAKE_SOURCE_DIR}/src/api/routes/authRoutes.cpp
         ${CMAKE_SOURCE_DIR}/src/api/middleware.cpp
+        ${CMAKE_SOURCE_DIR}/src/blob/BlobStore.cpp
         storage/SqliteDbTest.cpp
         storage/DbTransactionTest.cpp
         storage/DbMigratorTest.cpp
@@ -19,9 +20,10 @@ add_executable(nubilo_tests
         auth/passwordHashTest.cpp
         auth/authServiceTest.cpp
         api/AuthRoutesTest.cpp
+        blob/BlobStoreTest.cpp
 )
 
-target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include ${picosha2_SOURCE_DIR})
 target_compile_options(nubilo_tests PRIVATE -Wall -Wextra)
 target_link_libraries(nubilo_tests PRIVATE GTest::gtest_main httplib::httplib nlohmann_json::nlohmann_json sqlite3 argon2)
 

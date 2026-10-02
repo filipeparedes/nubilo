@@ -33,9 +33,6 @@ See [ADR 0006](./decisions/0006-three-repo-split.md) for the reasoning
 behind this split, and [ADR 0001](./decisions/0001-separate-repos-backend-frontend.md)
 (now superseded) for the original two-repo decision.
 
-See [ADR 0001](./decisions/0001-separate-repos-backend-frontend.md) for the
-reasoning behind this split.
-
 ## High-level structure
 
 The backend is a **modular monolith**: a single C++ process, internally
@@ -48,19 +45,19 @@ for why this was chosen over a microservices approach.
           Client (external, any HTTP consumer)
                       |
                       v
-+-------------------------------------------------------+
-|                     Server (C++)                      |
-|                                                       |
-|   +----------------+                                  |
-|   |   API layer    |  HTTP routing (cpp-httplib)      |
-|   +----------------+                                  |
-|          |                                            |
-|   +------------+  +------------+  +----------------+  |
-|   |    Auth    |  |    Sync    |  |    Storage     |  |
-|   | sessions,  |  | SHA-256    |  | SQLite + files |  |
-|   | tokens     |  | diffing    |  |                |  |
-|   +------------+  +------------+  +----------------+  |
-+-------------------------------------------------------+
++------------------------------------------------------------+
+|                     Server (C++)                           |
+|                                                            |
+|   +----------------+                                       |
+|   |   API layer    |  HTTP routing (cpp-httplib)           |
+|   +----------------+                                       |
+|          |                                                 |
+|   +------------+  +-----------------+  +----------------+  |
+|   |    Auth    |  |    Blob         |  |    Storage     |  |
+|   | sessions,  |  | files, content- |  |    SQLite      |  |
+|   | tokens     |  |  adressed       |  |                |  |
+|   +------------+  +-----------------+  +----------------+  |
++------------------------------------------------------------+
 ```
 
 ### Modules
@@ -68,10 +65,8 @@ for why this was chosen over a microservices approach.
 - **API layer** — receives HTTP requests, routes them to the appropriate
   module, and formats responses (JSON via nlohmann/json).
 - **Auth** — handles sessions/tokens and authorization checks.
-- **Sync engine** — detects file changes (via SHA-256 hashing), computes
-  diffs, and decides what needs to be transferred between client and server.
-- **Storage** — persists file metadata in SQLite and manages the actual file
-  contents on disk.
+- **Storage** — persists all application metadata in SQLite: user accounts, sessions, sync-state and file metadata.
+- **Blob** - persists the actual file content on disk, as content-addressed storage.
 
 Each module is expected to expose a narrow internal interface, so that if the
 project ever needed to extract a module into its own service (e.g. the sync
@@ -81,39 +76,36 @@ engine as a background daemon), the boundary is already there.
 
 ## Storage
 
-The storage module is responsible for everything the system needs to
-persist: user accounts, file metadata, sync state, and, starting in
-Phase 4, the file content itself. It's split into two distinct pieces,
-each backed by a different mechanism.
-
-### SQLite for metadata
-
-The `SqliteDb` class wraps a single SQLite connection with RAII: opened
-once at startup, closed automatically on shutdown. Schema changes are
-applied through `DbMigrator`, which tracks which migrations have already
-run in a `schema_migrations` table and applies any new ones (defined in
-`Migrations.h`) in order, each wrapped in a transaction (`DbTransaction`)
-so a failure partway through a migration leaves the schema untouched
-rather than half-updated.
+The `SqliteDb` class persists all application metadata: user accounts,
+sessions, and file metadata (paths, sizes, hashes, ownership, sync
+state, and, starting in Phase 4, chunk manifests). It wraps a single
+SQLite connection with RAII: opened once at startup, closed
+automatically on shutdown. Schema changes are applied through
+`DbMigrator`, which tracks which migrations have already run in a
+`schema_migrations` table and applies any new ones (defined in
+`Migrations.h`) in order, each wrapped in a transaction
+(`DbTransaction`) so a failure partway through a migration leaves the
+schema untouched rather than half-updated.
 
 Reads and writes go through `SqliteDb::exec()` for statements with no
 result set, and `SqliteDb::query()` for `SELECT`s, which returns rows as
 JSON, one object per row, keyed by column name, rather than a bespoke
 result-set type, since `nlohmann::json` already handles values of
 different types across rows and columns.
+--- 
 
-### Metadata vs content separation
+## Blob Storage
 
-The database (SQLite) stores only metadata, file paths, sizes, hashes,
-ownership, sync state, and (starting in Phase 4) chunk manifests. It never
-stores file content directly as a BLOB.
+The `BlobStore` class (`blob/`) persists file content on disk, as
+content-addressed storage (files named by their own SHA-256 hash) - the
+same pattern Git and Dropbox use internally.
 
-Actual file bytes live on the filesystem, managed by the application
-itself as content-addressed storage (files named by their own hash) — the
-same pattern Git and Dropbox use internally. This keeps the database small
-and fast regardless of how much data is synced, and is a prerequisite for
-chunk-level deduplication (Phase 4): a chunk can be shared across files and
-users by reference (its hash) without duplicating it in the database.
+The database never stores file content directly as a BLOB, it only
+holds a reference to it (the hash). This keeps the database small and
+fast regardless of how much data is synced, and is a prerequisite for
+chunk-level deduplication (Phase 4): a chunk can be shared across files
+and users by reference (its hash) without duplicating it in the
+database.
 
 ---
 
@@ -141,6 +133,8 @@ confirms to an attacker that the resource exists.
 - **Serialization:** nlohmann/json
 - **Database:** SQLite
 - **Change detection:** SHA-256
+- **File hashing:** SHA-256
+- **Password hashing:** Argon2
 - **Build system:** CMake
 - **Development platform:** macOS
 

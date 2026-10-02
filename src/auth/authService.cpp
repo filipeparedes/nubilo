@@ -31,7 +31,7 @@ std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& 
     if (!hashRes)
         return std::unexpected(AuthError{AuthError::Type::DatabaseError, hashRes.error().msg});
 
-    auto execRes = db.exec("INSERT INTO users (email, password_hash) VALUES (?, ?)", {email, hashRes.value()});
+    auto execRes = db.exec("INSERT INTO users (email, password_hash) VALUES (?, ?);", {email, hashRes.value()});
     if (!execRes) {
         AuthError::Type type = isUniqueConstraintError(execRes.error().msg)
             ? AuthError::Type::EmailAlreadyExists
