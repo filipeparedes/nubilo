@@ -14,4 +14,9 @@ std::expected<BlobStore, BlobError> BlobStore::open(const std::filesystem::path&
     }
 }
 
+std::filesystem::path BlobStore::pathForHash(const std::string& hash) const {
+    return root_/ hash.substr(0,2) / hash.substr(2,2) / hash;
+}
+
+
 }

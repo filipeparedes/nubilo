@@ -32,6 +32,13 @@ public:
     BlobStore& operator=(BlobStore&&) noexcept = default;
 
     /**
+     * @brief Builds the on-disk path for a given hash, splitting it into subdirectories.
+     * @param hash The hash identifying the content.
+     * @return The full path where that blob would live.
+     */
+    std::filesystem::path pathForHash(const std::string& hash) const;
+
+    /**
      * @brief Hashes the given content and writes it to disk under that hash.
      * @param content The raw bytes to store.
      * @return The content's hash on success, BlobError if the write fails.
