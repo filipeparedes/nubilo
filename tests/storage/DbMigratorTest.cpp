@@ -1,8 +1,8 @@
 #include "storage/DbMigrator.h"
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
-#include <gtest/gtest.h>
 #include <filesystem>
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -16,9 +16,9 @@ std::string tempDbPath() {
 
 TEST(DbMigratorTest, AppliesMigrationsInOrder) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     std::vector<nubilo::DbMigration> migrations = {
@@ -37,9 +37,9 @@ TEST(DbMigratorTest, AppliesMigrationsInOrder) {
 
 TEST(DbMigratorTest, SkipsAlreadyAppliedMigrations) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     std::vector<nubilo::DbMigration> migrations = {

@@ -13,7 +13,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/api/routes/authRoutes.cpp
         ${CMAKE_SOURCE_DIR}/src/api/middleware.cpp
         ${CMAKE_SOURCE_DIR}/src/blob/BlobStore.cpp
-        storage/SqliteDbTest.cpp
+        storage/DbTest.cpp
         storage/DbTransactionTest.cpp
         storage/DbMigratorTest.cpp
         api/ErrorResponseTest.cpp

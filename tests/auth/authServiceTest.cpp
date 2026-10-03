@@ -1,11 +1,11 @@
 #include "auth/authService.h"
 #include "auth/passwordHash.h"
-#include "storage/DbMigrator.h"
+#include "storage/Db.h"
 #include "storage/DbMigrations.h"
-#include "storage/SqliteDb.h"
+#include "storage/DbMigrator.h"
 
-#include <gtest/gtest.h>
 #include <filesystem>
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -15,9 +15,9 @@ std::string tempDbPath() {
     return path.string();
 }
 
-nubilo::SqliteDb makeMigratedDb(const std::string& path) {
-    auto dbResult = nubilo::SqliteDb::open(path);
-    nubilo::SqliteDb db = std::move(*dbResult);
+nubilo::Db makeMigratedDb(const std::string& path) {
+    auto dbResult = nubilo::Db::open(path);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     migrator.run(nubilo::migrations);
@@ -29,7 +29,7 @@ nubilo::SqliteDb makeMigratedDb(const std::string& path) {
 
 TEST(AuthServiceTest, RegisterUserSucceedsWithValidNewEmail) {
     std::string path = tempDbPath();
-    nubilo::SqliteDb db = makeMigratedDb(path);
+    nubilo::Db db = makeMigratedDb(path);
 
     auto result = nubilo::registerUser(db, "user@test.com", "password123");
 
@@ -41,7 +41,7 @@ TEST(AuthServiceTest, RegisterUserSucceedsWithValidNewEmail) {
 
 TEST(AuthServiceTest, RegisterUserFailsWithDuplicateEmail) {
     std::string path = tempDbPath();
-    nubilo::SqliteDb db = makeMigratedDb(path);
+    nubilo::Db db = makeMigratedDb(path);
 
     auto first = nubilo::registerUser(db, "user@test.com", "password123");
     ASSERT_TRUE(first.has_value());
@@ -56,7 +56,7 @@ TEST(AuthServiceTest, RegisterUserFailsWithDuplicateEmail) {
 
 TEST(AuthServiceTest, PasswordIsHashedNotStoredAsPlaintext) {
     std::string path = tempDbPath();
-    nubilo::SqliteDb db = makeMigratedDb(path);
+    nubilo::Db db = makeMigratedDb(path);
 
     auto result = nubilo::registerUser(db, "user@test.com", "password123");
     ASSERT_TRUE(result.has_value());

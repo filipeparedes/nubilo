@@ -2,9 +2,9 @@
 #include "api/Router.h"
 #include "api/routes/authRoutes.h"
 #include "api/routes/healthRoutes.h"
+#include "storage/Db.h"
 #include "storage/DbMigrations.h"
 #include "storage/DbMigrator.h"
-#include "storage/SqliteDb.h"
 #include "version.h"
 
 #include <print>
@@ -18,12 +18,12 @@ int main() {
 
     // ------ DATABASE -----
 
-    auto dbResult = nubilo::SqliteDb::open("nubilo.db");
+    auto dbResult = nubilo::Db::open("nubilo.db");
     if (!dbResult) {
         std::println(stderr, "Failed to open database: {}", dbResult.error().msg);
         return 1;
     }
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     auto migrateResult = migrator.run(nubilo::migrations);

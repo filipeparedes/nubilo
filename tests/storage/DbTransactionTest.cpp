@@ -1,8 +1,8 @@
 #include "storage/DbTransaction.h"
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
-#include <gtest/gtest.h>
 #include <filesystem>
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -16,9 +16,9 @@ std::string tempDbPath() {
 
 TEST(DbTransactionTest, AutomaticallyRollsBackIfNotCommitted) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     ASSERT_TRUE(db.exec("CREATE TABLE test (id INTEGER);"));
 
@@ -40,9 +40,9 @@ TEST(DbTransactionTest, AutomaticallyRollsBackIfNotCommitted) {
 
 TEST(DbTransactionTest, CommitPersistsChanges) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     ASSERT_TRUE(db.exec("CREATE TABLE test (id INTEGER);"));
 

@@ -1,30 +1,30 @@
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
 #include <stdexcept>
 
 namespace nubilo {
 
-SqliteDb::SqliteDb(sqlite3* db) : db_(db) {}
+Db::Db(sqlite3* db) : db_(db) {}
 
-std::expected<SqliteDb, DbError> SqliteDb::open(const std::string& path) {
+std::expected<Db, DbError> Db::open(const std::string& path) {
     sqlite3* db = nullptr;
     if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) {
         DbError error{sqlite3_errmsg(db)};
         sqlite3_close(db);
         return std::unexpected(error);
     }
-    return SqliteDb(db);
+    return Db(db);
 }
 
-SqliteDb::~SqliteDb() {
+Db::~Db() {
     sqlite3_close(db_);
 }
 
-SqliteDb::SqliteDb(SqliteDb&& other) noexcept : db_(other.db_) {
+Db::Db(Db&& other) noexcept : db_(other.db_) {
     other.db_ = nullptr;
 }
 
-SqliteDb& SqliteDb::operator=(SqliteDb&& other) noexcept {
+Db& Db::operator=(Db&& other) noexcept {
     if (this != &other) {
         sqlite3_close(db_);
         db_ = other.db_;
@@ -33,7 +33,7 @@ SqliteDb& SqliteDb::operator=(SqliteDb&& other) noexcept {
     return *this;
 }
 
-std::expected<void, DbError> SqliteDb::exec(const std::string& sql, const std::vector<std::string>& params) {
+std::expected<void, DbError> Db::exec(const std::string& sql, const std::vector<std::string>& params) {
     char* errMsg = nullptr;
 
     // no params -> run sql directly
@@ -63,7 +63,7 @@ std::expected<void, DbError> SqliteDb::exec(const std::string& sql, const std::v
     return {};
 }
 
-std::expected<nlohmann::json, DbError> SqliteDb::query(const std::string& sql, const std::vector<std::string>& params) {
+std::expected<nlohmann::json, DbError> Db::query(const std::string& sql, const std::vector<std::string>& params) {
     sqlite3_stmt* stmt = nullptr;
 
     //compile sql into a prepared statement
@@ -118,17 +118,17 @@ std::expected<nlohmann::json, DbError> SqliteDb::query(const std::string& sql, c
     return rows;
 }
 
-int64_t SqliteDb::lastInsertId() const {
+int64_t Db::lastInsertId() const {
     return sqlite3_last_insert_rowid(db_);
 }
 
-sqlite3* SqliteDb::handle() const {
+sqlite3* Db::handle() const {
     return db_;
 }
 
 // ----- TRANSACTIONS --------
 
-std::expected<void, DbError> SqliteDb::beginTx() {
+std::expected<void, DbError> Db::beginTx() {
     auto result = exec("BEGIN;");
     if (!result)
         return std::unexpected(DbError{"Failed to begin transaction: " + result.error().msg});
@@ -136,7 +136,7 @@ std::expected<void, DbError> SqliteDb::beginTx() {
     return result;
 }
 
-std::expected<void, DbError> SqliteDb::commitTx() {
+std::expected<void, DbError> Db::commitTx() {
     auto result = exec("COMMIT;");
     if (!result)
         return std::unexpected(DbError{"Failed to commit transaction: " + result.error().msg});
@@ -144,7 +144,7 @@ std::expected<void, DbError> SqliteDb::commitTx() {
     return result;
 }
 
-std::expected<void, DbError> SqliteDb::rollbackTx() {
+std::expected<void, DbError> Db::rollbackTx() {
     auto result = exec("ROLLBACK;");
     if (!result)
         return std::unexpected(DbError{"Failed to rollback transaction: " + result.error().msg});

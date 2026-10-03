@@ -1,9 +1,9 @@
 #pragma once
 
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
-#include <string>
 #include <expected>
+#include <string>
 
 namespace nubilo {
 
@@ -27,7 +27,7 @@ struct AuthError {
  * @param password The new user's plaintext password.
  * @return The new user's id on success, or an AuthError on failure.
  */
-std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& email, const std::string& password);
+std::expected<int64_t, AuthError> registerUser(Db& db, const std::string& email, const std::string& password);
 
 /**
  * @brief Attempts to authenticate a user
@@ -36,7 +36,7 @@ std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& 
  * @param password The user's plaintext password
  * @return The user's session token on success, or an AuthError on failure
  */
-std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::string& email, const std::string& password);
+std::expected<std::string, AuthError> authenticateUser(Db& db, const std::string& email, const std::string& password);
 
 /**
  * @brief Attempts to invalidate a session (logout)
@@ -44,6 +44,6 @@ std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::
  * @param token The session token
  * @return Nothing on success, AuthError on failure
  */
-std::expected<void, AuthError> invalidateSession(SqliteDb& db, const std::string& token);
+std::expected<void, AuthError> invalidateSession(Db& db, const std::string& token);
 
 }

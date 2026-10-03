@@ -26,7 +26,7 @@ static std::string genToken() {
 }
 
 
-std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& email, const std::string& password) {
+std::expected<int64_t, AuthError> registerUser(Db& db, const std::string& email, const std::string& password) {
     auto hashRes = encodePassword(password);
     if (!hashRes)
         return std::unexpected(AuthError{AuthError::Type::DatabaseError, hashRes.error().msg});
@@ -44,7 +44,7 @@ std::expected<int64_t, AuthError> registerUser(SqliteDb& db, const std::string& 
     return id;
 }
 
-std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::string& email, const std::string& password) {
+std::expected<std::string, AuthError> authenticateUser(Db& db, const std::string& email, const std::string& password) {
     auto queryRes = db.query("SELECT id, password_hash FROM users WHERE email = ?;", {email});
     if (!queryRes)
         return std::unexpected(AuthError{AuthError::Type::DatabaseError, queryRes.error().msg});
@@ -62,7 +62,7 @@ std::expected<std::string, AuthError> authenticateUser(SqliteDb& db, const std::
     return token;
 }
 
-std::expected<void, AuthError> invalidateSession(SqliteDb& db, const std::string& token) {
+std::expected<void, AuthError> invalidateSession(Db& db, const std::string& token) {
     auto delRes = db.exec("DELETE from sessions WHERE token = ?;", {token});
     if (!delRes)
         return std::unexpected(AuthError{AuthError::Type::DatabaseError, "Couldn't invalidate session."});
