@@ -115,7 +115,7 @@ export namespace nubilo {
   connection, beginning a transaction) uses a private constructor plus a
   static factory method returning `std::expected<T, ErrorType>`, never a
   public constructor that throws or silently produces an invalid object.
-  See `SqliteDb::open()` and `DbTransaction::begin()`.
+  See `Db::open()` and `DbTransaction::begin()`.
 - Such types are non-copyable (`= delete` on the copy constructor and copy
   assignment) when they own a unique resource, but movable (`noexcept` move
   constructor/assignment) so they can be returned out of their factory

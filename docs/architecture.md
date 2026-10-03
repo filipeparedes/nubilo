@@ -76,7 +76,7 @@ engine as a background daemon), the boundary is already there.
 
 ## Storage
 
-The `SqliteDb` class persists all application metadata: user accounts,
+The `Db` class persists all application metadata: user accounts,
 sessions, and file metadata (paths, sizes, hashes, ownership, sync
 state, and, starting in Phase 4, chunk manifests). It wraps a single
 SQLite connection with RAII: opened once at startup, closed
@@ -87,8 +87,8 @@ automatically on shutdown. Schema changes are applied through
 (`DbTransaction`) so a failure partway through a migration leaves the
 schema untouched rather than half-updated.
 
-Reads and writes go through `SqliteDb::exec()` for statements with no
-result set, and `SqliteDb::query()` for `SELECT`s, which returns rows as
+Reads and writes go through `Db::exec()` for statements with no
+result set, and `Db::query()` for `SELECT`s, which returns rows as
 JSON, one object per row, keyed by column name, rather than a bespoke
 result-set type, since `nlohmann::json` already handles values of
 different types across rows and columns.

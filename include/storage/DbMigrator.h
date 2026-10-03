@@ -20,7 +20,7 @@ struct DbMigration {
 
 /**
  * @class DbMigrator
- * @brief Applies a list of Migrations to a SqliteDb, keeping track of which versions
+ * @brief Applies a list of Migrations to a Db, keeping track of which versions
  * have already run so each migration is applied exactly once.
  */
 class DbMigrator {
