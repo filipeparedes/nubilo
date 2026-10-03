@@ -2,6 +2,7 @@
 #include "auth/passwordHash.h"
 
 #include <random>
+#include <chrono>
 
 namespace nubilo {
 
@@ -14,10 +15,18 @@ static std::string genToken() {
     uint8_t bytes[TOKEN_BYTES];
 
     std::random_device rd;
+    const auto now = std::chrono::system_clock::now().time_since_epoch().count();
+
+    //mix the OS entropy source with the current timestamp, which completely avoids a weak or
+    //deterministic random_device producing the same seed twice
+    std::seed_seq seed{rd(), rd(), static_cast<unsigned>(now), static_cast<unsigned>(now >> 32)};
+    std::mt19937_64 engine(seed);
+
     std::uniform_int_distribution<int> dist(0, 255);
     for (auto& byte : bytes)
-        byte = static_cast<uint8_t>(dist(rd));
+        byte = static_cast<uint8_t>(dist(engine));
 
+    //hex-encode each byte, 2 characters per byte, 64 character total
     std::string token;
     for (auto byte : bytes)
         token += std::format("{:02x}", byte);
