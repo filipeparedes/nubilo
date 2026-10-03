@@ -1,7 +1,7 @@
 #pragma once
 
+#include "storage/Db.h"
 #include "storage/DbError.h"
-#include "storage/SqliteDb.h"
 
 #include <expected>
 #include <string>
@@ -20,12 +20,12 @@ struct DbMigration {
 
 /**
  * @class DbMigrator
- * @brief Applies a list of Migrations to a SqliteDb, keeping track of which versions
+ * @brief Applies a list of Migrations to a Db, keeping track of which versions
  * have already run so each migration is applied exactly once.
  */
 class DbMigrator {
 public:
-    explicit DbMigrator(SqliteDb& db);
+    explicit DbMigrator(Db& db);
 
     /**
      * @brief Applies any migrations not yet recorded as run, in version order.
@@ -54,7 +54,7 @@ private:
      */
     std::expected<void, DbError> applyMigration(const DbMigration& migration);
 
-    SqliteDb& db_;
+    Db& db_;
 };
 
 }

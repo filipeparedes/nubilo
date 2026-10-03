@@ -1,15 +1,15 @@
+#include "api/routes/authRoutes.h"
 #include "api/HttpServer.h"
 #include "api/Router.h"
-#include "api/routes/authRoutes.h"
-#include "storage/DbMigrator.h"
+#include "storage/Db.h"
 #include "storage/DbMigrations.h"
-#include "storage/SqliteDb.h"
+#include "storage/DbMigrator.h"
 
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <httplib.h>
-#include <filesystem>
-#include <thread>
 #include <nlohmann/json.hpp>
+#include <thread>
 
 namespace {
 
@@ -23,9 +23,9 @@ std::string tempDbPath() {
 
 TEST(AuthRoutesTest, RegisterReturnsCreatedOnSuccess) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -54,9 +54,9 @@ TEST(AuthRoutesTest, RegisterReturnsCreatedOnSuccess) {
 
 TEST(AuthRoutesTest, RegisterRejectsDuplicateEmail) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -86,9 +86,9 @@ TEST(AuthRoutesTest, RegisterRejectsDuplicateEmail) {
 
 TEST(AuthRoutesTest, RegisterRejectsMissingFields) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -117,9 +117,9 @@ TEST(AuthRoutesTest, RegisterRejectsMissingFields) {
 
 TEST(AuthRoutesTest, RegisterRejectsInvalidEmailFormat) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -148,9 +148,9 @@ TEST(AuthRoutesTest, RegisterRejectsInvalidEmailFormat) {
 
 TEST(AuthRoutesTest, LoginSucceedsWithCorrectCredentials) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -180,9 +180,9 @@ TEST(AuthRoutesTest, LoginSucceedsWithCorrectCredentials) {
 
 TEST(AuthRoutesTest, LoginRejectsWrongPassword) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -212,9 +212,9 @@ TEST(AuthRoutesTest, LoginRejectsWrongPassword) {
 
 TEST(AuthRoutesTest, LoginRejectsNonexistentEmail) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -243,9 +243,9 @@ TEST(AuthRoutesTest, LoginRejectsNonexistentEmail) {
 
 TEST(AuthRoutesTest, LoginRejectsMissingFields) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -274,9 +274,9 @@ TEST(AuthRoutesTest, LoginRejectsMissingFields) {
 
 TEST(AuthRoutesTest, LogoutInvalidatesSessionWithValidToken) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -317,9 +317,9 @@ TEST(AuthRoutesTest, LogoutInvalidatesSessionWithValidToken) {
 
 TEST(AuthRoutesTest, LogoutRejectsMissingToken) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));
@@ -348,9 +348,9 @@ TEST(AuthRoutesTest, LogoutRejectsMissingToken) {
 
 TEST(AuthRoutesTest, LogoutRejectsInvalidToken) {
     std::string dbPath = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(dbPath);
+    auto dbResult = nubilo::Db::open(dbPath);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     nubilo::DbMigrator migrator(db);
     ASSERT_TRUE(migrator.run(nubilo::migrations));

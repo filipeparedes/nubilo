@@ -2,7 +2,7 @@
 #include "api/Router.h"
 #include "api/middleware.h"
 #include "auth/authService.h"
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
@@ -19,7 +19,7 @@ namespace nubilo {
  * @param req The incoming HTTP request (expects JSON body with "email" and "password")
  * @param res [out] The response to write to
  */
-static void handleUserRegistration(SqliteDb& db, const httplib::Request& req, httplib::Response& res) {
+static void handleUserRegistration(Db& db, const httplib::Request& req, httplib::Response& res) {
     //parse the request body
     // is_discarded() catches malformed JSON without throwing
     nlohmann::json body = nlohmann::json::parse(req.body, nullptr, false);
@@ -61,7 +61,7 @@ static void handleUserRegistration(SqliteDb& db, const httplib::Request& req, ht
  * @param req The incoming HTTP request (expects JSON body with "email" and "password")
  * @param res [out] The response to write to
  */
-static void handleUserAuthentication(SqliteDb& db, const httplib::Request& req, httplib::Response& res) {
+static void handleUserAuthentication(Db& db, const httplib::Request& req, httplib::Response& res) {
     //parse the request body
     // is_discarded() catches malformed JSON without throwing
     nlohmann::json body = nlohmann::json::parse(req.body, nullptr, false);
@@ -86,7 +86,7 @@ static void handleUserAuthentication(SqliteDb& db, const httplib::Request& req, 
     res.set_content(responseBody.dump(), "application/json");
 }
 
-static void handleSessionInvalidation(SqliteDb& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
+static void handleSessionInvalidation(Db& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
     auto result = invalidateSession(db, token);
     if (!result) {
         writeErrorResponse(res, 500, "LOGOUT_FAILED", "Could not invalidate session.");
@@ -98,7 +98,7 @@ static void handleSessionInvalidation(SqliteDb& db, const httplib::Request&, htt
 
 // ------------ ROUTE REGISTRATION ----------
 
-void registerAuthRoutes(Router& router, SqliteDb& db) {
+void registerAuthRoutes(Router& router, Db& db) {
     router.addRoute("POST", "/auth/register", [&db](const httplib::Request& req, httplib::Response& res) {
         handleUserRegistration(db, req, res);
     });

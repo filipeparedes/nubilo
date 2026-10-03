@@ -1,7 +1,7 @@
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
-#include <gtest/gtest.h>
 #include <filesystem>
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -14,12 +14,12 @@ std::string tempDbPath() {
 
 }
 
-TEST(SqliteDbTest, OpensAndCreatesFileIfMissing) {
+TEST(DbTest, OpensAndCreatesFileIfMissing) {
     std::string path = tempDbPath();
 
     ASSERT_FALSE(std::filesystem::exists(path));
     {
-        auto result = nubilo::SqliteDb::open(path);
+        auto result = nubilo::Db::open(path);
         ASSERT_TRUE(result);
     }
     EXPECT_TRUE(std::filesystem::exists(path));
@@ -27,22 +27,22 @@ TEST(SqliteDbTest, OpensAndCreatesFileIfMissing) {
     std::filesystem::remove(path);
 }
 
-TEST(SqliteDbTest, ExecutesCreateTableStatement) {
+TEST(DbTest, ExecutesCreateTableStatement) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     EXPECT_TRUE(db.exec("CREATE TABLE test_table (id INTEGER PRIMARY KEY);"));
 
     std::filesystem::remove(path);
 }
 
-TEST(SqliteDbTest, FailsOnInvalidSql) {
+TEST(DbTest, FailsOnInvalidSql) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     auto result = db.exec("THIS IS NOT VALID SQL;");
     EXPECT_FALSE(result);
@@ -50,22 +50,22 @@ TEST(SqliteDbTest, FailsOnInvalidSql) {
     std::filesystem::remove(path);
 }
 
-TEST(SqliteDbTest, HandleIsNotNull) {
+TEST(DbTest, HandleIsNotNull) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     EXPECT_NE(db.handle(), nullptr);
 
     std::filesystem::remove(path);
 }
 
-TEST(SqliteDbTest, QueryReturnsRowsAsJson) {
+TEST(DbTest, QueryReturnsRowsAsJson) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     ASSERT_TRUE(db.exec("CREATE TABLE users (id INTEGER, name TEXT);"));
     ASSERT_TRUE(db.exec("INSERT INTO users VALUES (1, 'Filipe');"));
@@ -78,11 +78,11 @@ TEST(SqliteDbTest, QueryReturnsRowsAsJson) {
     std::filesystem::remove(path);
 }
 
-TEST(SqliteDbTest, TransactionCommitPersistsChanges) {
+TEST(DbTest, TransactionCommitPersistsChanges) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     ASSERT_TRUE(db.exec("CREATE TABLE test (id INTEGER);"));
 
@@ -97,11 +97,11 @@ TEST(SqliteDbTest, TransactionCommitPersistsChanges) {
     std::filesystem::remove(path);
 }
 
-TEST(SqliteDbTest, TransactionRollbackDiscardsChanges) {
+TEST(DbTest, TransactionRollbackDiscardsChanges) {
     std::string path = tempDbPath();
-    auto dbResult = nubilo::SqliteDb::open(path);
+    auto dbResult = nubilo::Db::open(path);
     ASSERT_TRUE(dbResult);
-    nubilo::SqliteDb db = std::move(*dbResult);
+    nubilo::Db db = std::move(*dbResult);
 
     ASSERT_TRUE(db.exec("CREATE TABLE test (id INTEGER);"));
 

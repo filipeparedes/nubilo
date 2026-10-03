@@ -10,33 +10,33 @@
 namespace nubilo {
 
 /**
- * @class SqliteDb
+ * @class Db
  * @brief RAII wrapper around a SQLite connection.
  *
  * Owns the underlying sqlite3 handle: opens it on construction, closes it on destruction.
  * Provides a minimal interface for executing raw SQL. Higher-level query building belongs
  * in the code that uses this class, not here.
  */
-class SqliteDb {
+class Db {
 public:
     /**
      * @brief Opens (or creates, if missing) the SQLite database at the given path.
      * @param path Filesystem path to the .db file
      * @return The opened connection, or a DbError if it fails.
      */
-    static std::expected<SqliteDb, DbError> open(const std::string& path);
+    static std::expected<Db, DbError> open(const std::string& path);
 
     /**
      * @brief Closes the underlying connection.
      */
-    ~SqliteDb();
+    ~Db();
 
     // Non-copyable: the connection shouldn't be duplicated
-    SqliteDb(const SqliteDb&) = delete;
-    SqliteDb& operator=(const SqliteDb&) = delete;
+    Db(const Db&) = delete;
+    Db& operator=(const Db&) = delete;
 
-    SqliteDb(SqliteDb&& other) noexcept;
-    SqliteDb& operator=(SqliteDb&& other) noexcept;
+    Db(Db&& other) noexcept;
+    Db& operator=(Db&& other) noexcept;
 
     /**
      * @brief Executes a SQL statement with no expected result rows
@@ -89,7 +89,7 @@ public:
     std::expected<void, DbError> rollbackTx();
 
 private:
-    explicit SqliteDb(sqlite3* db);
+    explicit Db(sqlite3* db);
     sqlite3* db_ = nullptr;
 };
 

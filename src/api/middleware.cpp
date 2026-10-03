@@ -1,12 +1,12 @@
 #include "api/middleware.h"
 #include "api/ErrorResponse.h"
-#include "storage/SqliteDb.h"
+#include "storage/Db.h"
 
 #include <httplib.h>
 
 namespace nubilo {
 
-RouteCallback requireAuth(SqliteDb& db, AuthRouteCallback handler) {
+RouteCallback requireAuth(Db& db, AuthRouteCallback handler) {
     return [&db, handler](const httplib::Request& req, httplib::Response& res) {
         std::string authHeader = req.get_header_value("Authorization");
 

@@ -2,9 +2,9 @@
 
 namespace nubilo {
 
-DbTransaction::DbTransaction(SqliteDb& db) : db_(&db) {}
+DbTransaction::DbTransaction(Db& db) : db_(&db) {}
 
-std::expected<DbTransaction, DbError> DbTransaction::begin(SqliteDb& db) {
+std::expected<DbTransaction, DbError> DbTransaction::begin(Db& db) {
     auto result = db.beginTx();
     if (!result)
         return std::unexpected(result.error());

@@ -5,7 +5,7 @@
 #include <print>
 
 namespace nubilo {
-DbMigrator::DbMigrator(SqliteDb& db) : db_(db) {}
+DbMigrator::DbMigrator(Db& db) : db_(db) {}
 
 std::expected<void, DbError> DbMigrator::ensureMigrationsTableExists() {
     return db_.exec(

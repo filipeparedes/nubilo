@@ -5,7 +5,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/api/Router.cpp
         ${CMAKE_SOURCE_DIR}/src/api/ErrorResponse.cpp
         ${CMAKE_SOURCE_DIR}/src/api/routes/healthRoutes.cpp
-        ${CMAKE_SOURCE_DIR}/src/storage/SqliteDb.cpp
+        ${CMAKE_SOURCE_DIR}/src/storage/Db.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/DbTransaction.cpp
         ${CMAKE_SOURCE_DIR}/src/storage/DbMigrator.cpp
         ${CMAKE_SOURCE_DIR}/src/auth/passwordHash.cpp
@@ -13,7 +13,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/api/routes/authRoutes.cpp
         ${CMAKE_SOURCE_DIR}/src/api/middleware.cpp
         ${CMAKE_SOURCE_DIR}/src/blob/BlobStore.cpp
-        storage/SqliteDbTest.cpp
+        storage/DbTest.cpp
         storage/DbTransactionTest.cpp
         storage/DbMigratorTest.cpp
         api/ErrorResponseTest.cpp

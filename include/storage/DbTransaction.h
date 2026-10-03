@@ -1,7 +1,7 @@
 #pragma once
 
+#include "storage/Db.h"
 #include "storage/DbError.h"
-#include "storage/SqliteDb.h"
 
 #include <expected>
 
@@ -21,7 +21,7 @@ public:
      * @param db The database to run the transaction on.
      * @return The transaction, DbError if BEGIN fails.
      */
-    static std::expected<DbTransaction, DbError> begin(SqliteDb& db);
+    static std::expected<DbTransaction, DbError> begin(Db& db);
 
     ~DbTransaction();
 
@@ -38,9 +38,9 @@ public:
     std::expected<void, DbError> commit();
 
 private:
-    explicit DbTransaction(SqliteDb& db);
+    explicit DbTransaction(Db& db);
 
-    SqliteDb* db_;
+    Db* db_;
     bool active_ = true;
 };
 

@@ -4,7 +4,7 @@
 
 namespace nubilo {
 
-class SqliteDb;
+class Db;
 
 /**
  * Middleware wrapper for RouteCallback in cases where the route
@@ -13,6 +13,6 @@ class SqliteDb;
  * @param handler The original handler to call
  * @return A RouteCallback, with the verified session
  */
-RouteCallback requireAuth(SqliteDb& db, AuthRouteCallback handler);
+RouteCallback requireAuth(Db& db, AuthRouteCallback handler);
 
 }
