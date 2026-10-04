@@ -42,9 +42,39 @@ static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Reques
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleFileDownload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t fileId = std::stoll(req.matches[1]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
+        return;
+    }
+
+    auto fileRes = readFile(db, blobStore, fileId);
+    if (!fileRes) {
+        writeErrorResponse(res, 500, "DOWNLOAD_FAILED", "Could not read file.");
+        return;
+    }
+
+    const auto& file = fileRes.value();
+    res.set_content(file.content, file.contentType.empty() ? "application/octet-stream" : file.contentType);
+}
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token);
+    }));
+
+    router.addRoute("GET", R"(/files/([0-9]+))", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFileDownload(db, blobStore, req, res, token);
     }));
 }
 
