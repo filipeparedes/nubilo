@@ -63,4 +63,15 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
  */
 std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerId);
 
+/**
+ * @brief Deletes a file's record from the files table.
+ *
+ * Only the ownership row is removed. The blob (and its row in blobs) is kept, since other
+ * users may reference the same content; orphaned blobs are left for a future garbage collection.
+ * @param db The database where the file is recorded.
+ * @param fileId The id of the file to delete.
+ * @return Nothing on success, or a BlobError on failure.
+ */
+std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
+
 }
