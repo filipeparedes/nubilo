@@ -79,4 +79,14 @@ std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerI
     return files;
 }
 
+std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId) {
+    auto delRes = db.exec("DELETE FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!delRes)
+        return std::unexpected(BlobError{delRes.error().msg});
+
+    //TODO: Handle actual blob deletion (involves accounting only for orphan blobs)
+
+    return {};
+}
+
 }

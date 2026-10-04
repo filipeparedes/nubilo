@@ -540,3 +540,56 @@ TEST(FileRoutesTest, ListReturnsUploadedFiles) {
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
 }
+
+TEST(FileRoutesTest, DeleteRemovesFile) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8111;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "notes.txt", "text/plain"}
+    };
+    auto uploadResult = client.Post("/files", headers, items);
+    ASSERT_TRUE(uploadResult);
+    ASSERT_EQ(uploadResult->status, 201);
+    std::string path = "/files/" + std::to_string(nlohmann::json::parse(uploadResult->body)["id"].get<int64_t>());
+
+    auto deleteResult = client.Delete(path, headers);
+    auto downloadResult = client.Get(path, headers);
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(deleteResult);
+    EXPECT_EQ(deleteResult->status, 204);
+
+    ASSERT_TRUE(downloadResult);
+    EXPECT_EQ(downloadResult->status, 404);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
