@@ -69,13 +69,44 @@ static void handleFileDownload(Db& db, BlobStore& blobStore, const httplib::Requ
     res.set_content(file.content, file.contentType.empty() ? "application/octet-stream" : file.contentType);
 }
 
+static void handleFileList(Db& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto listRes = listFiles(db, ownerId);
+    if (!listRes) {
+        writeErrorResponse(res, 500, "LIST_FAILED", "Could not list files.");
+        return;
+    }
+
+    nlohmann::json responseBody = nlohmann::json::array();
+    for (const auto& file : listRes.value()) {
+        responseBody.push_back({
+            {"id", file.id},
+            {"path", file.path},
+            {"size", file.size},
+            {"contentType", file.contentType},
+            {"createdAt", file.createdAt},
+            {"updatedAt", file.updatedAt}});
+    }
+
+    res.status = 200;
+    res.set_content(responseBody.dump(), "application/json");
+}
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token);
     }));
-
     router.addRoute("GET", R"(/files/([0-9]+))", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileDownload(db, blobStore, req, res, token);
+    }));
+    router.addRoute("GET", "/files", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFileList(db, req, res, token);
     }));
 }
 

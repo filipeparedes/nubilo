@@ -56,4 +56,27 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
     return File{path, contentRes.value(), contentType};
 }
 
+std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerId) {
+    auto queryRes = db.query(
+        "SELECT files.id, files.path, blobs.size, blobs.content_type, files.created_at, files.updated_at "
+        "FROM files JOIN blobs ON files.content_hash = blobs.content_hash "
+        "WHERE files.owner_id = ? ORDER BY files.id;",
+        {std::to_string(ownerId)});
+    if (!queryRes)
+        return std::unexpected(BlobError{queryRes.error().msg});
+
+    std::vector<FileInfo> files;
+    for (const auto& row : queryRes.value()) {
+        files.push_back(FileInfo{
+            row["id"].get<int64_t>(),
+            row["path"].get<std::string>(),
+            row["size"].get<int64_t>(),
+            row["content_type"].is_null() ? "" : row["content_type"].get<std::string>(),
+            row["created_at"].get<std::string>(),
+            row["updated_at"].get<std::string>()});
+    }
+
+    return files;
+}
+
 }

@@ -245,3 +245,38 @@ TEST(BlobServiceTest, ReadFileWorksForEachOwnerOfSharedContent) {
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
 }
+
+TEST(BlobServiceTest, ListFilesReturnsOnlyFilesOwnedByUser) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File fileA{"a.txt", "content a", "text/plain"};
+    nubilo::File fileB{"b.txt", "content b", "text/plain"};
+    nubilo::File fileC{"c.txt", "content c", "text/plain"};
+
+    auto idA = nubilo::storeFile(db, blobStore, 1, fileA);
+    auto idB = nubilo::storeFile(db, blobStore, 2, fileB);
+    auto idC = nubilo::storeFile(db, blobStore, 1, fileC);
+    ASSERT_TRUE(idA.has_value());
+    ASSERT_TRUE(idB.has_value());
+    ASSERT_TRUE(idC.has_value());
+
+    auto listResult = nubilo::listFiles(db, 1);
+    ASSERT_TRUE(listResult.has_value());
+    ASSERT_EQ(listResult->size(), 2);
+
+    EXPECT_EQ((*listResult)[0].id, idA.value());
+    EXPECT_EQ((*listResult)[0].path, "a.txt");
+    EXPECT_EQ((*listResult)[0].size, static_cast<int64_t>(fileA.content.size()));
+    EXPECT_EQ((*listResult)[0].contentType, "text/plain");
+    EXPECT_EQ((*listResult)[1].id, idC.value());
+    EXPECT_EQ((*listResult)[1].path, "c.txt");
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}

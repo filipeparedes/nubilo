@@ -483,3 +483,60 @@ TEST(FileRoutesTest, DownloadReturnsNotFoundForFileOwnedByAnotherUser) {
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
 }
+
+TEST(FileRoutesTest, ListReturnsUploadedFiles) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8110;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "notes.txt", "text/plain"}
+    };
+    auto uploadResult = client.Post("/files", headers, items);
+    ASSERT_TRUE(uploadResult);
+    ASSERT_EQ(uploadResult->status, 201);
+    int64_t fileId = nlohmann::json::parse(uploadResult->body)["id"].get<int64_t>();
+
+    auto listResult = client.Get("/files", headers);
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(listResult);
+    ASSERT_EQ(listResult->status, 200);
+
+    auto body = nlohmann::json::parse(listResult->body);
+    ASSERT_TRUE(body.is_array());
+    ASSERT_EQ(body.size(), 1);
+    EXPECT_EQ(body[0]["id"].get<int64_t>(), fileId);
+    EXPECT_EQ(body[0]["path"].get<std::string>(), "notes.txt");
+    EXPECT_EQ(body[0]["size"].get<int64_t>(), 13);
+    EXPECT_EQ(body[0]["contentType"].get<std::string>(), "text/plain");
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
