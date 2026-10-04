@@ -5,6 +5,7 @@
 
 #include <expected>
 #include <string>
+#include <vector>
 
 namespace nubilo {
 
@@ -17,6 +18,21 @@ struct File {
     std::string content;
     std::string contentType;
 };
+
+/**
+ * @struct FileInfo
+ * @brief A file's metadata, without its content.
+ */
+struct FileInfo {
+    int64_t id;
+    std::string path;
+    int64_t size;
+    std::string contentType;
+    std::string createdAt;
+    std::string updatedAt;
+};
+
+// -------------- FUNCTIONS -------------
 
 /**
  * @brief Stores content for a given owner: writes the blob to disk (a no-op if
@@ -39,6 +55,12 @@ std::expected<int64_t, BlobError> storeFile( Db& db, BlobStore& blobStore, int64
  */
 std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId);
 
-
+/**
+ * @brief Lists the files owned by a given user, without their content.
+ * @param db The database where the files are recorded.
+ * @param ownerId The id of the user whose files to list.
+ * @return The user's files ordered by id (empty if none), or a BlobError on failure.
+ */
+std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerId);
 
 }
