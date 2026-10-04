@@ -77,6 +77,7 @@ add_executable(nubilo
         src/api/middleware.cpp
         src/blob/BlobStore.cpp
         src/blob/blobService.cpp
+        src/api/routes/fileRoutes.cpp
 )
 
 target_include_directories(nubilo PRIVATE include ${picosha2_SOURCE_DIR})
