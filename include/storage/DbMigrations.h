@@ -57,6 +57,17 @@ inline const std::vector<DbMigration> migrations = {
     "  FOREIGN KEY (file_id) REFERENCES files(id)"
     ");"
     },
+{7,
+    "DROP TABLE file_metadata;"
+    "CREATE TABLE blobs ("
+    "  content_hash TEXT PRIMARY KEY,"
+    "  size INTEGER NOT NULL,"
+    "  content_type TEXT"
+    ");"
+    "ALTER TABLE files ADD COLUMN content_hash TEXT NOT NULL DEFAULT '' REFERENCES blobs(content_hash);"
+    "ALTER TABLE files ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'));"
+    "ALTER TABLE files ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'));"
+    },
 };
 
 }
