@@ -1,4 +1,4 @@
-#include "blob/blobStorage.h"
+#include "blob/blobService.h"
 
 namespace nubilo {
 
