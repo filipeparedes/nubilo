@@ -98,6 +98,31 @@ static void handleFileList(Db& db, const httplib::Request&, httplib::Response& r
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleFileDelete(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t fileId = std::stoll(req.matches[1]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
+        return;
+    }
+
+    auto delRes = deleteFile(db, fileId);
+    if (!delRes) {
+        writeErrorResponse(res, 500, "DELETE_FAILED", "Could not delete file.");
+        return;
+    }
+
+    res.status = 204;
+}
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token);
@@ -107,6 +132,9 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
     }));
     router.addRoute("GET", "/files", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileList(db, req, res, token);
+    }));
+    router.addRoute("DELETE", R"(/files/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFileDelete(db, req, res, token);
     }));
 }
 
