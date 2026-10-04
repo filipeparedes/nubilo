@@ -280,3 +280,36 @@ TEST(BlobServiceTest, ListFilesReturnsOnlyFilesOwnedByUser) {
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
 }
+
+TEST(BlobServiceTest, DeleteFileRemovesOnlyThatOwnersRecord) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File fileA{"a.txt", "shared content", "text/plain"};
+    nubilo::File fileB{"b.txt", "shared content", "text/plain"};
+    auto idA = nubilo::storeFile(db, blobStore, 1, fileA);
+    auto idB = nubilo::storeFile(db, blobStore, 2, fileB);
+    ASSERT_TRUE(idA.has_value());
+    ASSERT_TRUE(idB.has_value());
+
+    auto deleteResult = nubilo::deleteFile(db, idA.value());
+    ASSERT_TRUE(deleteResult.has_value());
+
+    EXPECT_FALSE(nubilo::readFile(db, blobStore, idA.value()).has_value());
+
+    auto readB = nubilo::readFile(db, blobStore, idB.value());
+    ASSERT_TRUE(readB.has_value());
+    EXPECT_EQ(readB->content, "shared content");
+
+    auto blobCount = db.query("SELECT COUNT(*) as count FROM blobs;");
+    ASSERT_TRUE(blobCount);
+    EXPECT_EQ((*blobCount)[0]["count"].get<int64_t>(), 1);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
