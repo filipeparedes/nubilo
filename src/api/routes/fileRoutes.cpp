@@ -65,6 +65,7 @@ static void handleFileDownload(Db& db, BlobStore& blobStore, const httplib::Requ
     }
 
     const auto& file = fileRes.value();
+    res.set_header("Content-Disposition", "attachment; filename=\"" + file.path + "\"");
     res.set_content(file.content, file.contentType.empty() ? "application/octet-stream" : file.contentType);
 }
 
