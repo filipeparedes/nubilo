@@ -30,4 +30,15 @@ struct File {
  */
 std::expected<int64_t, BlobError> storeFile( Db& db, BlobStore& blobStore, int64_t ownerId, const File& file);
 
+/**
+ * @brief Reads back the content of a file, by its row in the files table.
+ * @param db The database where the file is recorded.
+ * @param blobStore The disk-backed store to read the content from.
+ * @param fileId The id of the file to read.
+ * @return The file (path, content, contentType) on success, or a BlobError on failure.
+ */
+std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId);
+
+
+
 }

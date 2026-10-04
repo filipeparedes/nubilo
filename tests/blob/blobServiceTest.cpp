@@ -1,4 +1,6 @@
 #include "blob/blobService.h"
+
+#include "httplib.h"
 #include "storage/Db.h"
 #include "storage/DbMigrations.h"
 #include "storage/DbMigrator.h"
@@ -149,6 +151,96 @@ TEST(BlobServiceTest, StoreFileWithIdenticalContentDifferentOwnersBothSucceed) {
     ASSERT_TRUE(resultA.has_value());
     ASSERT_TRUE(resultB.has_value());
     EXPECT_NE(resultA.value(), resultB.value());
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, ReadFileReturnsStoredContent) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File file{"notes.txt", "hello, nubilo", "text/plain"};
+    auto storeResult = nubilo::storeFile(db, blobStore, 1, file);
+    ASSERT_TRUE(storeResult.has_value());
+
+    auto readResult = nubilo::readFile(db, blobStore, storeResult.value());
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult->content, file.content);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, ReadFileReturnsPathAndContentType) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File file{"docs/notes.txt", "hello, nubilo", "text/plain"};
+    auto storeResult = nubilo::storeFile(db, blobStore, 1, file);
+    ASSERT_TRUE(storeResult.has_value());
+
+    auto readResult = nubilo::readFile(db, blobStore, storeResult.value());
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult->path, file.path);
+    EXPECT_EQ(readResult->contentType, file.contentType);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, ReadFileReturnsErrorForNonexistentId) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    auto readResult = nubilo::readFile(db, blobStore, 9999);
+    EXPECT_FALSE(readResult.has_value());
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, ReadFileWorksForEachOwnerOfSharedContent) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File fileA{"a.txt", "shared content", "text/plain"};
+    nubilo::File fileB{"b.txt", "shared content", "text/plain"};
+
+    auto idA = nubilo::storeFile(db, blobStore, 1, fileA);
+    auto idB = nubilo::storeFile(db, blobStore, 2, fileB);
+    ASSERT_TRUE(idA.has_value());
+    ASSERT_TRUE(idB.has_value());
+
+    auto readA = nubilo::readFile(db, blobStore, idA.value());
+    auto readB = nubilo::readFile(db, blobStore, idB.value());
+
+    ASSERT_TRUE(readA.has_value());
+    ASSERT_TRUE(readB.has_value());
+    EXPECT_EQ(readA->content, "shared content");
+    EXPECT_EQ(readB->content, "shared content");
+    EXPECT_EQ(readA->path, "a.txt");
+    EXPECT_EQ(readB->path, "b.txt");
 
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);

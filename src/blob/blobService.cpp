@@ -32,4 +32,28 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
     return id;
 }
 
+std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId) {
+    auto queryRes = db.query(
+        "SELECT files.path, files.content_hash, blobs.content_type "
+        "FROM files JOIN blobs ON files.content_hash = blobs.content_hash "
+        "WHERE files.id = ?;",
+        {std::to_string(fileId)});
+    if (!queryRes)
+        return std::unexpected(BlobError{queryRes.error().msg});
+
+    if (queryRes.value().empty())
+        return std::unexpected(BlobError{"File not found."});
+
+    const auto& row = queryRes.value()[0];
+    std::string path = row["path"].get<std::string>();
+    std::string hash = row["content_hash"].get<std::string>();
+    std::string contentType = row["content_type"].is_null() ? "" : row["content_type"].get<std::string>();
+
+    auto contentRes = blobStore.read(hash);
+    if (!contentRes)
+        return std::unexpected(contentRes.error());
+
+    return File{path, contentRes.value(), contentType};
+}
+
 }
