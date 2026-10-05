@@ -377,3 +377,47 @@ TEST(AuthRoutesTest, LogoutRejectsInvalidToken) {
 
     std::filesystem::remove(dbPath);
 }
+
+TEST(AuthRoutesTest, ExpiredSessionIsRejectedAndRemoved) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    constexpr int testPort = 8093;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    client.Post("/auth/register", R"({"email":"user@example.com","password":"password123"})", "application/json");
+    auto loginResult = client.Post("/auth/login", R"({"email":"user@example.com","password":"password123"})", "application/json");
+    ASSERT_TRUE(loginResult);
+    std::string token = nlohmann::json::parse(loginResult->body)["token"];
+
+    auto expireRes = db.exec("UPDATE sessions SET expires_at = datetime('now', '-1 day') WHERE token = ?;", {token});
+    ASSERT_TRUE(expireRes);
+
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+    auto result = client.Post("/auth/logout", headers, "", "");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+
+    auto queryResult = db.query("SELECT 1 FROM sessions WHERE token = ?;", {token});
+    ASSERT_TRUE(queryResult);
+    EXPECT_TRUE(queryResult->empty());
+
+    std::filesystem::remove(dbPath);
+}
