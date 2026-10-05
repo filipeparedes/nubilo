@@ -68,6 +68,9 @@ inline const std::vector<DbMigration> migrations = {
     "ALTER TABLE files ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'));"
     "ALTER TABLE files ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'));"
     },
-};
+{8,
+"ALTER TABLE sessions ADD COLUMN expires_at TEXT NOT NULL DEFAULT '';"
+    },
+    };
 
 }
