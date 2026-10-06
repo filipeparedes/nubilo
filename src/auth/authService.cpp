@@ -6,6 +6,8 @@
 
 namespace nubilo {
 
+static constexpr const char* SESSION_DURATION = "+7 days";
+
 static bool isUniqueConstraintError(const std::string& msg) {
     return msg.find("UNIQUE constraint failed") != std::string::npos;
 }
@@ -64,7 +66,9 @@ std::expected<std::string, AuthError> authenticateUser(Db& db, const std::string
     int64_t id = queryRes.value()[0]["id"].get<int64_t>();
     auto token = genToken();
 
-    auto insertRes = db.exec("INSERT INTO sessions (token, user_id) VALUES (?, ?);", {token, std::to_string(id)});
+    auto insertRes = db.exec(
+    "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, datetime('now', ?));",
+{token, std::to_string(id), SESSION_DURATION});
     if (!insertRes)
         return std::unexpected(AuthError{AuthError::Type::DatabaseError, insertRes.error().msg});
 
