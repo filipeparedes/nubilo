@@ -34,6 +34,8 @@ FetchContent_MakeAvailable(sqlite3)
 
 add_library(sqlite3 STATIC ${sqlite3_SOURCE_DIR}/sqlite3.c)
 target_include_directories(sqlite3 PUBLIC ${sqlite3_SOURCE_DIR})
+# Serialized threading mode: a connection can be safely shared between threads (cpp-httplib thread pool)
+target_compile_definitions(sqlite3 PRIVATE SQLITE_THREADSAFE=1)
 
 # ---- Argon 2 -----
 FetchContent_Declare(

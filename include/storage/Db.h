@@ -3,6 +3,7 @@
 #include "storage/DbError.h"
 
 #include <expected>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sqlite3.h>
 #include <string>
@@ -39,8 +40,21 @@ public:
     Db& operator=(Db&& other) noexcept;
 
     /**
+     * @brief Locks the database for the calling thread until the returned lock goes out of scope.
+     *
+     * exec(), query() and lastInsertId() already lock internally. Hold this lock around a sequence of
+     * calls that must run as one unit (e.g. an INSERT followed by lastInsertId(), or a SELECT followed
+     * by an INSERT that depends on it). The mutex is recursive, meaning those calls can be made while the lock is held.
+     *
+     * @return The held lock. Keep it alive for the duration of the sequence.
+     */
+    [[nodiscard]] std::unique_lock<std::recursive_mutex> lock();
+
+    /**
      * @brief Executes a SQL statement with no expected result rows
      * (CREATE TABLE, INSERT, UPDATE, etc..)
+     * @note Thread-safe: locks the database for the duration of the call
+     *
      * @param sql The SQL statement to execute.
      * @param params (optional) SQL statement parameter values
      * @return Nothing on success, or a DbError on failure.
@@ -50,6 +64,8 @@ public:
     /**
      * @brief Runs a SELECT query and returns the result set as JSON.
      * One array element per row, each row a JSON object mapping column name to value.
+     * @note Thread-safe: locks the database for the duration of the call
+     *
      * @param sql The SELECT statement to run.
      * @return  The result rows as a JSON array, or a DbError on failure.
      */
@@ -57,6 +73,8 @@ public:
 
     /**
      * Returns the row id of the most recent successful INSERT on this connection.
+     * @note Thread-safe: locks the database for the duration of the call.
+     *
      * @return The row id, or 0 if no INSERT has happened yet.
      */
     [[nodiscard]] int64_t lastInsertId() const;
@@ -91,6 +109,7 @@ public:
 private:
     explicit Db(sqlite3* db);
     sqlite3* db_ = nullptr;
+    mutable std::recursive_mutex mutex_; //guards sqlite3 connection against concurrent use
 };
 
 }

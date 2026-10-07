@@ -8,6 +8,8 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
     if (!storeRes)
         return std::unexpected(storeRes.error());
 
+    auto lock = db.lock();
+
     auto queryRes = db.query("SELECT 1 FROM blobs WHERE content_hash = ?;", {storeRes.value()});
     if (!queryRes)
         return std::unexpected(BlobError{queryRes.error().msg});
