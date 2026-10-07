@@ -33,8 +33,14 @@ Db& Db::operator=(Db&& other) noexcept {
     return *this;
 }
 
+std::unique_lock<std::recursive_mutex> Db::lock() {
+    return std::unique_lock(mutex_);
+}
+
 std::expected<void, DbError> Db::exec(const std::string& sql, const std::vector<std::string>& params) {
     char* errMsg = nullptr;
+
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
 
     // no params -> run sql directly
     if (params.empty()) {
@@ -65,6 +71,8 @@ std::expected<void, DbError> Db::exec(const std::string& sql, const std::vector<
 
 std::expected<nlohmann::json, DbError> Db::query(const std::string& sql, const std::vector<std::string>& params) {
     sqlite3_stmt* stmt = nullptr;
+
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
 
     //compile sql into a prepared statement
     if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
@@ -119,6 +127,8 @@ std::expected<nlohmann::json, DbError> Db::query(const std::string& sql, const s
 }
 
 int64_t Db::lastInsertId() const {
+    std::lock_guard<std::recursive_mutex> guard(mutex_);
+
     return sqlite3_last_insert_rowid(db_);
 }
 
