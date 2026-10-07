@@ -42,6 +42,8 @@ std::expected<int64_t, AuthError> registerUser(Db& db, const std::string& email,
     if (!hashRes)
         return std::unexpected(AuthError{AuthError::Type::DatabaseError, hashRes.error().msg});
 
+    auto lock = db.lock();
+
     auto execRes = db.exec("INSERT INTO users (email, password_hash) VALUES (?, ?);", {email, hashRes.value()});
     if (!execRes) {
         AuthError::Type type = isUniqueConstraintError(execRes.error().msg)
