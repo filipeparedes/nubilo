@@ -3,6 +3,7 @@
 #include "storage/DbError.h"
 
 #include <expected>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sqlite3.h>
 #include <string>
@@ -37,6 +38,17 @@ public:
 
     Db(Db&& other) noexcept;
     Db& operator=(Db&& other) noexcept;
+
+    /**
+     * @brief Locks the database for the calling thread until the returned lock goes out of scope.
+     *
+     * exec(), query() and lastInsertId() already lock internally. Hold this lock around a sequence of
+     * calls that must run as one unit (e.g. an INSERT followed by lastInsertId(), or a SELECT followed
+     * by an INSERT that depends on it). The mutex is recursive, meaning those calls can be made while the lock is held.
+     *
+     * @return The held lock. Keep it alive for the duration of the sequence.
+     */
+    [[nodiscard]] std::unique_lock<std::recursive_mutex> lock();
 
     /**
      * @brief Executes a SQL statement with no expected result rows
@@ -91,6 +103,7 @@ public:
 private:
     explicit Db(sqlite3* db);
     sqlite3* db_ = nullptr;
+    mutable std::recursive_mutex mutex_;
 };
 
 }
