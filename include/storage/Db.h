@@ -53,6 +53,8 @@ public:
     /**
      * @brief Executes a SQL statement with no expected result rows
      * (CREATE TABLE, INSERT, UPDATE, etc..)
+     * @note Thread-safe: locks the database for the duration of the call
+     *
      * @param sql The SQL statement to execute.
      * @param params (optional) SQL statement parameter values
      * @return Nothing on success, or a DbError on failure.
@@ -62,6 +64,8 @@ public:
     /**
      * @brief Runs a SELECT query and returns the result set as JSON.
      * One array element per row, each row a JSON object mapping column name to value.
+     * @note Thread-safe: locks the database for the duration of the call
+     *
      * @param sql The SELECT statement to run.
      * @return  The result rows as a JSON array, or a DbError on failure.
      */
@@ -69,6 +73,8 @@ public:
 
     /**
      * Returns the row id of the most recent successful INSERT on this connection.
+     * @note Thread-safe: locks the database for the duration of the call.
+     *
      * @return The row id, or 0 if no INSERT has happened yet.
      */
     [[nodiscard]] int64_t lastInsertId() const;
@@ -103,7 +109,7 @@ public:
 private:
     explicit Db(sqlite3* db);
     sqlite3* db_ = nullptr;
-    mutable std::recursive_mutex mutex_;
+    mutable std::recursive_mutex mutex_; //guards sqlite3 connection against concurrent use
 };
 
 }
