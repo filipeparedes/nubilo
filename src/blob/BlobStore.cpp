@@ -1,11 +1,14 @@
 #include "blob/BlobStore.h"
 
+#include <atomic>
 #include <picosha2.h>
 
 #include <fstream>
 #include <sstream>
 
 namespace nubilo {
+
+static std::atomic<uint64_t> count = 0;
 
 BlobStore::BlobStore(std::filesystem::path root) : root_(std::move(root)) {}
 
@@ -38,7 +41,8 @@ std::expected<std::string, BlobError> BlobStore::store(const std::string& conten
 
         //write to a tmp name first, nobody reads this path, so a half-written file
         //file is never visible under the real hash
-        const std::filesystem::path tmpPath = finalPath.parent_path() / (hash + ".tmp");
+        //static atomic counter to make sure two files with the same content don't override
+        const std::filesystem::path tmpPath = finalPath.parent_path() / (hash + "-" + std::to_string(count++) + ".tmp");
 
         {
             std::ofstream ofs(tmpPath, std::ios::binary);
@@ -52,8 +56,14 @@ std::expected<std::string, BlobError> BlobStore::store(const std::string& conten
             }
         }
 
+        std::error_code ec;
         //atomic: final path either doesn't exist yet, or is fully written, never half-written
-        std::filesystem::rename(tmpPath, finalPath);
+        std::filesystem::rename(tmpPath, finalPath, ec);
+        if (ec) {
+            std::error_code rmEc;
+            std::filesystem::remove(tmpPath, rmEc);
+            return std::unexpected(BlobError{"Failed to store blob: " + ec.message()});
+        }
         return hash;
     } catch (const std::filesystem::filesystem_error& e) {
         return std::unexpected(BlobError{std::string("Failed to store blob: ") + e.what()});

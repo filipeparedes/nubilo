@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <picosha2.h>
+#include <thread>
 
 #include <filesystem>
 
@@ -98,6 +99,32 @@ TEST_F(BlobStoreTest, StoringSameContentTwiceReturnsSameHash) {
     ASSERT_TRUE(first.has_value());
     ASSERT_TRUE(second.has_value());
     EXPECT_EQ(first.value(), second.value());
+}
+
+TEST_F(BlobStoreTest, StoringSameNewContentConcurrentlySucceeds) {
+    auto store = BlobStore::open(root_);
+    ASSERT_TRUE(store.has_value());
+
+    const std::string content(1024 * 1024, 'x');
+    constexpr int threadCount = 8;
+    std::atomic<int> failures{0};
+
+    std::vector<std::thread> threads;
+    for (int t = 0; t < threadCount; ++t) {
+        threads.emplace_back([&store, &content, &failures]() {
+            auto res = store->store(content);
+            if (!res)
+                ++failures;
+        });
+    }
+    for (auto& thread : threads)
+        thread.join();
+
+    EXPECT_EQ(failures.load(), 0);
+
+    auto readRes = store->read(picosha2::hash256_hex_string(content));
+    ASSERT_TRUE(readRes.has_value());
+    EXPECT_EQ(readRes.value(), content);
 }
 
 }
