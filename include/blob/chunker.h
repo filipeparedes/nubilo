@@ -1,15 +1,13 @@
 #pragma once
 
+#include "BlobError.h"
+
 #include <expected>
 #include <string>
-#include <vector>
 #include <string_view>
+#include <vector>
 
 namespace nubilo {
-
-struct ChunkError {
-    std::string message;
-};
 
 /**
  * @brief Splits content into consecutive chunks of at most chunkSize bytes.
@@ -22,8 +20,8 @@ struct ChunkError {
  *
  * @param content The bytes to split.
  * @param chunkSize The maximum size of each chunk in bytes. Must be greater than zero.
- * @return The chunks in order, or a ChunkError if chunkSize is zero.
+ * @return The chunks in order, or a BlobError if chunkSize is zero.
  */
-std::expected<std::vector<std::string_view>, ChunkError> chunkContent(std::string_view content, size_t chunkSize);
+std::expected<std::vector<std::string_view>, BlobError> chunkContent(std::string_view content, size_t chunkSize);
 
 }
