@@ -15,6 +15,7 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/auth/authService.cpp
         ${CMAKE_SOURCE_DIR}/src/blob/BlobStore.cpp
         ${CMAKE_SOURCE_DIR}/src/blob/blobService.cpp
+        ${CMAKE_SOURCE_DIR}/src/blob/chunker.cpp
         storage/DbTest.cpp
         storage/DbTransactionTest.cpp
         storage/DbMigratorTest.cpp
@@ -25,6 +26,7 @@ add_executable(nubilo_tests
         blob/BlobStoreTest.cpp
         blob/blobServiceTest.cpp
         blob/fileRoutesTest.cpp
+        blob/chunkerTest.cpp
 )
 
 target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include ${picosha2_SOURCE_DIR})
