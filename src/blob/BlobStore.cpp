@@ -27,8 +27,8 @@ std::filesystem::path BlobStore::pathForHash(const std::string& hash) const {
 }
 
 // NOLINT(readability-make-member-function-const): physically const, but has an observable side effect (writes to disk)
-std::expected<std::string, BlobError> BlobStore::store(const std::string& content) {
-    std::string hash = picosha2::hash256_hex_string(content);
+std::expected<std::string, BlobError> BlobStore::store(std::string_view content) {
+    std::string hash = picosha2::hash256_hex_string(content.begin(), content.end());
 
     try {
         const std::filesystem::path finalPath = pathForHash(hash);

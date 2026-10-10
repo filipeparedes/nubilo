@@ -5,6 +5,7 @@
 #include <expected>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace nubilo {
 
@@ -43,7 +44,7 @@ public:
      * @param content The raw bytes to store.
      * @return The content's hash on success, BlobError if the write fails.
      */
-    std::expected<std::string, BlobError> store(const std::string& content);
+    std::expected<std::string, BlobError> store(std::string_view content);
 
     /**
      * @brief Reads back the content previously stored under the given hash.
