@@ -127,4 +127,39 @@ TEST_F(BlobStoreTest, StoringSameNewContentConcurrentlySucceeds) {
     EXPECT_EQ(readRes.value(), content);
 }
 
+TEST_F(BlobStoreTest, StoreReturnsKnownSha256ForEmptyContent) {
+    auto store = BlobStore::open(root_);
+    ASSERT_TRUE(store.has_value());
+
+    auto hashRes = store->store("");
+
+    ASSERT_TRUE(hashRes.has_value());
+    EXPECT_EQ(hashRes.value(), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+}
+
+TEST_F(BlobStoreTest, StoreReturnsKnownSha256ForAbc) {
+    auto store = BlobStore::open(root_);
+    ASSERT_TRUE(store.has_value());
+
+    auto hashRes = store->store("abc");
+
+    ASSERT_TRUE(hashRes.has_value());
+    EXPECT_EQ(hashRes.value(), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+}
+
+TEST_F(BlobStoreTest, StoreAcceptsPartOfContentAsStringView) {
+    auto store = BlobStore::open(root_);
+    ASSERT_TRUE(store.has_value());
+
+    const std::string content = "abcdef";
+    auto hashRes = store->store(std::string_view(content).substr(0, 3));
+
+    ASSERT_TRUE(hashRes.has_value());
+    EXPECT_EQ(hashRes.value(), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+    auto readRes = store->read(hashRes.value());
+    ASSERT_TRUE(readRes.has_value());
+    EXPECT_EQ(readRes.value(), "abc");
+}
+
 }
