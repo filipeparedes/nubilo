@@ -71,6 +71,19 @@ inline const std::vector<DbMigration> migrations = {
 {8,
 "ALTER TABLE sessions ADD COLUMN expires_at TEXT NOT NULL DEFAULT '';"
     },
+{9,
+    "CREATE TABLE file_chunks ("
+    "  file_id INTEGER NOT NULL,"
+    "  position INTEGER NOT NULL,"
+    "  chunk_hash TEXT NOT NULL,"
+    "  PRIMARY KEY (file_id, position),"
+    "  FOREIGN KEY (file_id) REFERENCES files(id),"
+    "  FOREIGN KEY (chunk_hash) REFERENCES blobs(content_hash)"
+    ");"
+    "CREATE INDEX idx_file_chunks_chunk_hash ON file_chunks(chunk_hash);"
+    "INSERT INTO file_chunks (file_id, position, chunk_hash)"
+    "  SELECT id, 0, content_hash FROM files WHERE content_hash != '';"
+    },
     };
 
 }
