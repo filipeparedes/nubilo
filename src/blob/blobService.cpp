@@ -111,9 +111,12 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
 
 std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerId) {
     auto queryRes = db.query(
-        "SELECT files.id, files.path, blobs.size, blobs.content_type, files.created_at, files.updated_at "
-        "FROM files JOIN blobs ON files.content_hash = blobs.content_hash "
-        "WHERE files.owner_id = ? ORDER BY files.id;",
+        "SELECT files.id, files.path, COALESCE(SUM(blobs.size), 0) AS size, "
+        "files.content_type, files.created_at, files.updated_at "
+        "FROM files "
+        "LEFT JOIN file_chunks ON file_chunks.file_id = files.id "
+        "LEFT JOIN blobs ON blobs.content_hash = file_chunks.chunk_hash "
+        "WHERE files.owner_id = ? GROUP BY files.id ORDER BY files.id;",
         {std::to_string(ownerId)});
     if (!queryRes)
         return std::unexpected(BlobError{queryRes.error().msg});
