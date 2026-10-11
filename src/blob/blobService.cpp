@@ -1,37 +1,65 @@
 #include "blob/blobService.h"
 
+#include "blob/chunker.h"
+#include "storage/DbTransaction.h"
+
 namespace nubilo {
 
+constexpr size_t DEFAULT_CHUNK_SIZE = 1024 * 1024 * 4;
+
 std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_t ownerId, const File& file) {
-    //store it in disk
-    auto storeRes = blobStore.store(file.content);
-    if (!storeRes)
-        return std::unexpected(storeRes.error());
+    auto chunks = chunkContent(file.content, DEFAULT_CHUNK_SIZE);
+    if (!chunks)
+        return std::unexpected(chunks.error());
+
+    std::vector<std::pair<std::string, size_t>> storeRes;
+
+    for (auto chunk : chunks.value()) {
+        //store it in disk
+        auto res = blobStore.store(chunk);
+        if (!res)
+            return std::unexpected(res.error());
+
+        storeRes.emplace_back(res.value(), chunk.size());
+    }
 
     auto lock = db.lock();
+    auto tx = DbTransaction::begin(db);
+    if (!tx)
+        return std::unexpected(BlobError{tx.error().msg});
 
-    auto queryRes = db.query("SELECT 1 FROM blobs WHERE content_hash = ?;", {storeRes.value()});
-    if (!queryRes)
-        return std::unexpected(BlobError{queryRes.error().msg});
-
-    //ONLY IF IT DOESN'T ALREADY EXIST: create a new blob with the content hash
-    if (queryRes.value().empty()) {
+    for (const auto& res : storeRes) {
+        //ONLY IF IT DOESN'T ALREADY EXIST: create a new blob with the content hash
         auto blobRes = db.exec(
-        "INSERT INTO blobs (content_hash, size, content_type) VALUES (?, ?, ?);",
-    {storeRes.value(), std::to_string(file.content.size()), file.contentType});
+        "INSERT OR IGNORE INTO blobs (content_hash, size) VALUES (?, ?);",
+    {res.first, std::to_string(res.second)});
         if (!blobRes)
             return std::unexpected(BlobError{blobRes.error().msg});
     }
-
     //ALWAYS DONE: insert into files table (linking a user to a file)
     auto fileRes = db.exec(
-    "INSERT INTO files (owner_id, path, content_hash) VALUES (?, ?, ?);",
-{std::to_string(ownerId), file.path, storeRes.value()});
+    "INSERT INTO files (owner_id, path, content_type) VALUES (?, ?, ?);",
+{std::to_string(ownerId), file.path, file.contentType});
     if (!fileRes)
         return std::unexpected(BlobError{fileRes.error().msg});
 
-    int64_t id = db.lastInsertId();
-    return id;
+    int64_t fId = db.lastInsertId();
+
+    // create the file chunks in db
+    int pos = 0;
+    for (const auto& res : storeRes) {
+        auto chunkRes = db.exec(
+            "INSERT INTO file_chunks (file_id, position, chunk_hash) VALUES (?, ?, ?);",
+            {std::to_string(fId), std::to_string(pos++), res.first});
+        if (!chunkRes)
+            return std::unexpected(BlobError{chunkRes.error().msg});
+    }
+
+    auto commitRes = tx->commit();
+    if (!commitRes)
+        return std::unexpected(BlobError{commitRes.error().msg});
+
+    return fId;
 }
 
 std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId) {
