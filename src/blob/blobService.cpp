@@ -63,27 +63,50 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
 }
 
 std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId) {
-    auto queryRes = db.query(
-        "SELECT files.path, files.content_hash, blobs.content_type "
-        "FROM files JOIN blobs ON files.content_hash = blobs.content_hash "
-        "WHERE files.id = ?;",
-        {std::to_string(fileId)});
-    if (!queryRes)
-        return std::unexpected(BlobError{queryRes.error().msg});
+    auto lock = db.lock();
 
-    if (queryRes.value().empty())
+    auto fileRes = db.query(
+        "SELECT path, content_type FROM files WHERE id = ?;",
+        {std::to_string(fileId)});
+    if (!fileRes)
+        return std::unexpected(BlobError{fileRes.error().msg});
+
+    if (fileRes.value().empty())
         return std::unexpected(BlobError{"File not found."});
 
-    const auto& row = queryRes.value()[0];
-    std::string path = row["path"].get<std::string>();
-    std::string hash = row["content_hash"].get<std::string>();
-    std::string contentType = row["content_type"].is_null() ? "" : row["content_type"].get<std::string>();
+    const auto& fileRow = fileRes.value()[0];
+    std::string path = fileRow["path"].get<std::string>();
+    std::string contentType = fileRow["content_type"].is_null() ? "" : fileRow["content_type"].get<std::string>();
 
-    auto contentRes = blobStore.read(hash);
-    if (!contentRes)
-        return std::unexpected(contentRes.error());
+    auto chunksRes = db.query(
+        "SELECT file_chunks.chunk_hash, blobs.size "
+        "FROM file_chunks LEFT JOIN blobs ON file_chunks.chunk_hash = blobs.content_hash "
+        "WHERE file_chunks.file_id = ? ORDER BY file_chunks.position;",
+        {std::to_string(fileId)});
+    if (!chunksRes)
+        return std::unexpected(BlobError{chunksRes.error().msg});
 
-    return File{path, contentRes.value(), contentType};
+    //both queries are done, the disk reads below don't need the database locked
+    lock.unlock();
+
+    size_t totalSize = 0;
+    for (const auto& row : chunksRes.value()) {
+        if (row["size"].is_null())
+            return std::unexpected(BlobError{"Missing chunk metadata."});
+        totalSize += row["size"].get<size_t>();
+    }
+
+    std::string content;
+    content.reserve(totalSize);
+    for (const auto& row : chunksRes.value()) {
+        auto chunkRes = blobStore.read(row["chunk_hash"].get<std::string>());
+        if (!chunkRes)
+            return std::unexpected(chunkRes.error());
+
+        content += chunkRes.value();
+    }
+
+    return File{path, std::move(content), contentType};
 }
 
 std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerId) {
