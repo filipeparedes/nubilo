@@ -37,7 +37,7 @@ inline const std::vector<DbMigration> migrations = {
          "  FOREIGN KEY (user_id) REFERENCES users(id)"
          ");"
     },
-{5,
+    {5,
     "CREATE TABLE file_metadata ("
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  file_id INTEGER NOT NULL UNIQUE,"
@@ -48,7 +48,7 @@ inline const std::vector<DbMigration> migrations = {
     "  FOREIGN KEY (file_id) REFERENCES files(id)"
     ");"
     },
-{6,
+    {6,
     "CREATE TABLE sync_state ("
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  file_id INTEGER NOT NULL UNIQUE,"
@@ -57,7 +57,7 @@ inline const std::vector<DbMigration> migrations = {
     "  FOREIGN KEY (file_id) REFERENCES files(id)"
     ");"
     },
-{7,
+    {7,
     "DROP TABLE file_metadata;"
     "CREATE TABLE blobs ("
     "  content_hash TEXT PRIMARY KEY,"
@@ -71,7 +71,7 @@ inline const std::vector<DbMigration> migrations = {
 {8,
 "ALTER TABLE sessions ADD COLUMN expires_at TEXT NOT NULL DEFAULT '';"
     },
-{9,
+    {9,
     "CREATE TABLE file_chunks ("
     "  file_id INTEGER NOT NULL,"
     "  position INTEGER NOT NULL,"
@@ -83,6 +83,25 @@ inline const std::vector<DbMigration> migrations = {
     "CREATE INDEX idx_file_chunks_chunk_hash ON file_chunks(chunk_hash);"
     "INSERT INTO file_chunks (file_id, position, chunk_hash)"
     "  SELECT id, 0, content_hash FROM files WHERE content_hash != '';"
+    },
+    {10,
+    "CREATE TABLE files_new ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  owner_id INTEGER NOT NULL,"
+    "  path TEXT NOT NULL,"
+    "  content_type TEXT,"
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  FOREIGN KEY (owner_id) REFERENCES users(id)"
+    ");"
+    "INSERT INTO files_new (id, owner_id, path, content_type, created_at, updated_at)"
+    "  SELECT f.id, f.owner_id, f.path, b.content_type, f.created_at, f.updated_at"
+    "  FROM files f LEFT JOIN blobs b ON b.content_hash = f.content_hash;"
+    "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = 'files')"
+    "  WHERE name = 'files_new';"
+    "DROP TABLE files;"
+    "ALTER TABLE files_new RENAME TO files;"
+    "ALTER TABLE blobs DROP COLUMN content_type;"
     },
     };
 
