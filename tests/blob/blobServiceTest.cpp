@@ -53,7 +53,7 @@ TEST(BlobServiceTest, StoreFileSucceedsWithNewContent) {
     std::filesystem::remove_all(blobRootPath);
 }
 
-TEST(BlobServiceTest, StoreFileCreatesBlobRowForNewContent) {
+TEST(BlobServiceTest, StoreFileCreatesBlobAndManifestForNewContent) {
     std::string dbPath = tempDbPath();
     nubilo::Db db = makeMigratedDb(dbPath);
 
@@ -66,12 +66,22 @@ TEST(BlobServiceTest, StoreFileCreatesBlobRowForNewContent) {
     auto result = nubilo::storeFile(db, blobStore, 1, file);
     ASSERT_TRUE(result.has_value());
 
-    auto queryResult = db.query("SELECT size, content_type FROM blobs;");
-    ASSERT_TRUE(queryResult);
-    ASSERT_EQ(queryResult->size(), 1);
+    auto blobs = db.query("SELECT content_hash, size FROM blobs;");
+    ASSERT_TRUE(blobs);
+    ASSERT_EQ(blobs->size(), 1);
+    EXPECT_EQ((*blobs)[0]["size"].get<int64_t>(), static_cast<int64_t>(file.content.size()));
 
-    EXPECT_EQ((*queryResult)[0]["size"].get<int64_t>(), static_cast<int64_t>(file.content.size()));
-    EXPECT_EQ((*queryResult)[0]["content_type"].get<std::string>(), file.contentType);
+    auto fileRow = db.query("SELECT content_type FROM files WHERE id = ?;", {std::to_string(result.value())});
+    ASSERT_TRUE(fileRow);
+    ASSERT_EQ(fileRow->size(), 1);
+    EXPECT_EQ((*fileRow)[0]["content_type"].get<std::string>(), file.contentType);
+
+    auto chunks = db.query("SELECT position, chunk_hash FROM file_chunks WHERE file_id = ?;",
+                           {std::to_string(result.value())});
+    ASSERT_TRUE(chunks);
+    ASSERT_EQ(chunks->size(), 1);
+    EXPECT_EQ((*chunks)[0]["position"].get<int64_t>(), 0);
+    EXPECT_EQ((*chunks)[0]["chunk_hash"].get<std::string>(), (*blobs)[0]["content_hash"].get<std::string>());
 
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
