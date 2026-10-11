@@ -3,7 +3,7 @@
 namespace nubilo {
 
 std::string getVersion() {
-    return "0.2-dev";
+    return "0.3-dev";
 }
 
 }
