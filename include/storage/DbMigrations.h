@@ -103,6 +103,18 @@ inline const std::vector<DbMigration> migrations = {
     "ALTER TABLE files_new RENAME TO files;"
     "ALTER TABLE blobs DROP COLUMN content_type;"
     },
+    {11,
+    "CREATE TABLE file_versions ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  file_id INTEGER NOT NULL,"
+    "  version INTEGER NOT NULL,"
+    "  size INTEGER NOT NULL,"
+    "  content_type TEXT,"
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  UNIQUE (file_id, version),"
+    "  FOREIGN KEY (file_id) REFERENCES files(id)"
+    ");"
+    },
     };
 
 }
