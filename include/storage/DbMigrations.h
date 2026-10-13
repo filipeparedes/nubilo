@@ -142,6 +142,24 @@ inline const std::vector<DbMigration> migrations = {
     "ALTER TABLE file_chunks_new RENAME TO file_chunks;"
     "CREATE INDEX idx_file_chunks_chunk_hash ON file_chunks(chunk_hash);"
     },
+    {14,
+    //files keeps only the identity: one row per owner and path
+    "CREATE TABLE files_new ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  owner_id INTEGER NOT NULL,"
+    "  path TEXT NOT NULL,"
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  UNIQUE (owner_id, path),"
+    "  FOREIGN KEY (owner_id) REFERENCES users(id)"
+    ");"
+    "INSERT INTO files_new (id, owner_id, path, created_at, updated_at)"
+    "  SELECT id, owner_id, path, created_at, updated_at FROM files;"
+    "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = 'files')"
+    "  WHERE name = 'files_new';"
+    "DROP TABLE files;"
+    "ALTER TABLE files_new RENAME TO files;"
+    },
     };
 
 }
