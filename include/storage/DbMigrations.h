@@ -125,6 +125,23 @@ inline const std::vector<DbMigration> migrations = {
     "    f.content_type, f.created_at"
     "  FROM files f;"
     },
+    {13,
+    //the manifest now belongs to a version
+    "CREATE TABLE file_chunks_new ("
+    "  version_id INTEGER NOT NULL,"
+    "  position INTEGER NOT NULL,"
+    "  chunk_hash TEXT NOT NULL,"
+    "  PRIMARY KEY (version_id, position),"
+    "  FOREIGN KEY (version_id) REFERENCES file_versions(id),"
+    "  FOREIGN KEY (chunk_hash) REFERENCES blobs(content_hash)"
+    ");"
+    "INSERT INTO file_chunks_new (version_id, position, chunk_hash)"
+    "  SELECT v.id, fc.position, fc.chunk_hash"
+    "  FROM file_chunks fc JOIN file_versions v ON v.file_id = fc.file_id AND v.version = 1;"
+    "DROP TABLE file_chunks;"
+    "ALTER TABLE file_chunks_new RENAME TO file_chunks;"
+    "CREATE INDEX idx_file_chunks_chunk_hash ON file_chunks(chunk_hash);"
+    },
     };
 
 }
