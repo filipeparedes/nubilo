@@ -115,6 +115,16 @@ inline const std::vector<DbMigration> migrations = {
     "  FOREIGN KEY (file_id) REFERENCES files(id)"
     ");"
     },
+    {12,
+    //every existing file becomes version 1
+    "INSERT INTO file_versions (file_id, version, size, content_type, created_at)"
+    "  SELECT f.id, 1,"
+    "    COALESCE((SELECT SUM(b.size) FROM file_chunks fc"
+    "              JOIN blobs b ON b.content_hash = fc.chunk_hash"
+    "              WHERE fc.file_id = f.id), 0),"
+    "    f.content_type, f.created_at"
+    "  FROM files f;"
+    },
     };
 
 }
