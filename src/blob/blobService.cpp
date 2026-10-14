@@ -31,26 +31,61 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
     for (const auto& res : storeRes) {
         //ONLY IF IT DOESN'T ALREADY EXIST: create a new blob with the content hash
         auto blobRes = db.exec(
-        "INSERT OR IGNORE INTO blobs (content_hash, size) VALUES (?, ?);",
-    {res.first, std::to_string(res.second)});
+            "INSERT OR IGNORE INTO blobs (content_hash, size) VALUES (?, ?);",
+            {res.first, std::to_string(res.second)});
         if (!blobRes)
             return std::unexpected(BlobError{blobRes.error().msg});
     }
-    //ALWAYS DONE: insert into files table (linking a user to a file)
-    auto fileRes = db.exec(
-    "INSERT INTO files (owner_id, path, content_type) VALUES (?, ?, ?);",
-{std::to_string(ownerId), file.path, file.contentType});
-    if (!fileRes)
-        return std::unexpected(BlobError{fileRes.error().msg});
 
-    int64_t fId = db.lastInsertId();
+    // find the file for this owner and path, or create it
+    auto findRes = db.query(
+        "SELECT id FROM files WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), file.path});
+    if (!findRes)
+        return std::unexpected(BlobError{findRes.error().msg});
 
-    // create the file chunks in db
+    int64_t fId;
+    if (findRes.value().empty()) {
+        auto fileRes = db.exec(
+            "INSERT INTO files (owner_id, path) VALUES (?, ?);",
+            {std::to_string(ownerId), file.path});
+        if (!fileRes)
+            return std::unexpected(BlobError{fileRes.error().msg});
+
+        fId = db.lastInsertId();
+    } else {
+        fId = findRes.value().at(0).at("id").get<int64_t>();
+
+        auto touchRes = db.exec(
+            "UPDATE files SET updated_at = datetime('now') WHERE id = ?;",
+            {std::to_string(fId)});
+        if (!touchRes)
+            return std::unexpected(BlobError{touchRes.error().msg});
+    }
+
+    // next version number for this file
+    auto nextVerRes = db.query(
+        "SELECT COALESCE(MAX(version), 0) + 1 AS next FROM file_versions WHERE file_id = ?;",
+        {std::to_string(fId)});
+    if (!nextVerRes)
+        return std::unexpected(BlobError{nextVerRes.error().msg});
+
+    int64_t nextVersion = nextVerRes.value().at(0).at("next").get<int64_t>();
+
+    auto verRes = db.exec(
+        "INSERT INTO file_versions (file_id, version, size, content_type) VALUES (?, ?, ?, ?);",
+        {std::to_string(fId), std::to_string(nextVersion), std::to_string(file.content.size()), file.contentType});
+    if (!verRes)
+        return std::unexpected(BlobError{verRes.error().msg});
+
+    int64_t versionId = db.lastInsertId();
+
+    // create the version's chunk manifest in db
     int pos = 0;
     for (const auto& res : storeRes) {
         auto chunkRes = db.exec(
-            "INSERT INTO file_chunks (file_id, position, chunk_hash) VALUES (?, ?, ?);",
-            {std::to_string(fId), std::to_string(pos++), res.first});
+            "INSERT INTO file_chunks (version_id, position, chunk_hash) VALUES (?, ?, ?);",
+            {std::to_string(versionId), std::to_string(pos++), res.first});
         if (!chunkRes)
             return std::unexpected(BlobError{chunkRes.error().msg});
     }
