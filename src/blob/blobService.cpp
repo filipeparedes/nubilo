@@ -180,9 +180,17 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId) {
     if (!tx)
         return std::unexpected(BlobError{tx.error().msg});
 
-    auto chunksRes = db.exec("DELETE FROM file_chunks WHERE file_id = ?;", {std::to_string(fileId)});
+    auto chunksRes = db.exec(
+       "DELETE FROM file_chunks WHERE version_id IN (SELECT id FROM file_versions WHERE file_id = ?);",
+       {std::to_string(fileId)});
     if (!chunksRes)
         return std::unexpected(BlobError{chunksRes.error().msg});
+
+    auto versionsRes = db.exec(
+        "DELETE FROM file_versions WHERE file_id = ?;",
+        {std::to_string(fileId)});
+    if (!versionsRes)
+        return std::unexpected(BlobError{versionsRes.error().msg});
 
     auto delRes = db.exec("DELETE FROM files WHERE id = ?;", {std::to_string(fileId)});
     if (!delRes)
