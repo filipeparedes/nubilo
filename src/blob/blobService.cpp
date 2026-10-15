@@ -101,7 +101,9 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
     auto lock = db.lock();
 
     auto fileRes = db.query(
-        "SELECT path, content_type FROM files WHERE id = ?;",
+        "SELECT files.path, file_versions.id AS version_id, file_versions.content_type "
+        "FROM files JOIN file_versions ON file_versions.file_id = files.id "
+        "WHERE files.id = ? ORDER BY file_versions.version DESC LIMIT 1;",
         {std::to_string(fileId)});
     if (!fileRes)
         return std::unexpected(BlobError{fileRes.error().msg});
@@ -112,12 +114,13 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
     const auto& fileRow = fileRes.value()[0];
     std::string path = fileRow["path"].get<std::string>();
     std::string contentType = fileRow["content_type"].is_null() ? "" : fileRow["content_type"].get<std::string>();
+    int64_t versionId = fileRow["version_id"].get<int64_t>();
 
     auto chunksRes = db.query(
         "SELECT file_chunks.chunk_hash, blobs.size "
         "FROM file_chunks LEFT JOIN blobs ON file_chunks.chunk_hash = blobs.content_hash "
-        "WHERE file_chunks.file_id = ? ORDER BY file_chunks.position;",
-        {std::to_string(fileId)});
+        "WHERE file_chunks.version_id = ? ORDER BY file_chunks.position;",
+        {std::to_string(versionId)});
     if (!chunksRes)
         return std::unexpected(BlobError{chunksRes.error().msg});
 
