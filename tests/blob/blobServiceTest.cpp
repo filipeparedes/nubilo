@@ -74,13 +74,16 @@ TEST(BlobServiceTest, StoreFileCreatesBlobAndManifestForNewContent) {
     ASSERT_EQ(blobs->size(), 1);
     EXPECT_EQ((*blobs)[0]["size"].get<int64_t>(), static_cast<int64_t>(file.content.size()));
 
-    auto fileRow = db.query("SELECT content_type FROM files WHERE id = ?;", {std::to_string(result.value())});
-    ASSERT_TRUE(fileRow);
-    ASSERT_EQ(fileRow->size(), 1);
-    EXPECT_EQ((*fileRow)[0]["content_type"].get<std::string>(), file.contentType);
-
-    auto chunks = db.query("SELECT position, chunk_hash FROM file_chunks WHERE file_id = ?;",
+    auto versionRow = db.query("SELECT id, version, size, content_type FROM file_versions WHERE file_id = ?;",
                            {std::to_string(result.value())});
+    ASSERT_TRUE(versionRow);
+    ASSERT_EQ(versionRow->size(), 1);
+    EXPECT_EQ((*versionRow)[0]["version"].get<int64_t>(), 1);
+    EXPECT_EQ((*versionRow)[0]["size"].get<int64_t>(), static_cast<int64_t>(file.content.size()));
+    EXPECT_EQ((*versionRow)[0]["content_type"].get<std::string>(), file.contentType);
+
+    auto chunks = db.query("SELECT position, chunk_hash FROM file_chunks WHERE version_id = ?;",
+                           {std::to_string((*versionRow)[0]["id"].get<int64_t>())});
     ASSERT_TRUE(chunks);
     ASSERT_EQ(chunks->size(), 1);
     EXPECT_EQ((*chunks)[0]["position"].get<int64_t>(), 0);
