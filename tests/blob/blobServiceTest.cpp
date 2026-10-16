@@ -354,7 +354,7 @@ TEST(BlobServiceTest, StoreFileSplitsLargeContentIntoOrderedChunks) {
         "JOIN file_versions ON file_versions.id = file_chunks.version_id "
         "WHERE file_versions.file_id = ? ORDER BY file_chunks.position;",
         {std::to_string(result.value())});
-    
+
     ASSERT_TRUE(chunks);
     ASSERT_EQ(chunks->size(), 3);
     for (int i = 0; i < 3; ++i)
@@ -461,7 +461,9 @@ TEST(BlobServiceTest, DeleteFileRemovesItsChunkManifest) {
     ASSERT_TRUE(deleteResult.has_value());
 
     //only the other file's chunk is left in the manifest
-    auto chunks = db.query("SELECT file_id FROM file_chunks;");
+    auto chunks = db.query(
+        "SELECT file_versions.file_id FROM file_chunks "
+        "JOIN file_versions ON file_versions.id = file_chunks.version_id;");
     ASSERT_TRUE(chunks);
     ASSERT_EQ(chunks->size(), 1);
     EXPECT_EQ((*chunks)[0]["file_id"].get<int64_t>(), idB.value());
