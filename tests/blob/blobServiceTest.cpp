@@ -349,8 +349,12 @@ TEST(BlobServiceTest, StoreFileSplitsLargeContentIntoOrderedChunks) {
     ASSERT_TRUE(blobs);
     EXPECT_EQ((*blobs)[0]["count"].get<int64_t>(), 3);
 
-    auto chunks = db.query("SELECT position FROM file_chunks WHERE file_id = ? ORDER BY position;",
-                           {std::to_string(result.value())});
+    auto chunks = db.query(
+        "SELECT file_chunks.position FROM file_chunks "
+        "JOIN file_versions ON file_versions.id = file_chunks.version_id "
+        "WHERE file_versions.file_id = ? ORDER BY file_chunks.position;",
+        {std::to_string(result.value())});
+    
     ASSERT_TRUE(chunks);
     ASSERT_EQ(chunks->size(), 3);
     for (int i = 0; i < 3; ++i)
