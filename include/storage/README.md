@@ -28,14 +28,18 @@ SQLite access for the whole server: connection, transactions and schema migratio
 |---|---|
 | `users` | Accounts: email and password hash. |
 | `sessions` | Login tokens, with an expiration date. |
-| `files` | One row per stored file: owner, path, content type, timestamps. |
+| `files` | One row per file: owner, path and timestamps. Unique per owner and path. |
+| `file_versions` | One row per version of a file: version number, size, content type and creation date. |
 | `blobs` | One row per stored chunk: hash and size. |
-| `file_chunks` | The ordered list of chunks that make up each file. |
+| `file_chunks` | The ordered list of chunks that make up each version. |
 | `sync_state` | Per-file sync version. |
 | `schema_migrations` | Which migrations have been applied. |
 
 ## Notes
 
 * **Adding a migration:** append a new entry with the next version number to `DbMigrations.h`. Never edit or remove an entry that has already run in any environment.
-* **Foreign keys** are declared in the schema but SQLite does not enforce them unless `PRAGMA foreign_keys` is on, and the project does not turn it on. Code that deletes rows must also delete the rows that depend on them.
+* **Foreign keys** are declared in the schema but SQLite does not enforce them unless `PRAGMA foreign_keys` is on, and the project does not turn it on. 
+Code that deletes rows must also delete the rows that depend on them. Deleting a file removes its `file_chunks`, then its `file_versions`, then the `files` row, in that order.
 * `Db::handle()` returns the raw `sqlite3*` and is not protected by the mutex.
+* **Migration 14** makes `files` unique per owner and path, so it fails on a database that already has two files with the same owner and path. 
+In a development database, delete it and start again.
