@@ -22,6 +22,7 @@ struct File {
 /**
  * @struct FileInfo
  * @brief A file's metadata, without its content.
+ * The size and content type are those of the file's latest version.
  */
 struct FileInfo {
     int64_t id;
@@ -35,9 +36,13 @@ struct FileInfo {
 // -------------- FUNCTIONS -------------
 
 /**
- * @brief Stores content for a given owner: splits it into fixed-size chunks, writes each chunk to disk
- * (a no-op for chunks that already exist), records new chunks in the blobs table, and registers the file
- * together with its ordered chunk list (the manifest) in a single transaction.
+* @brief Stores content for a given owner as a new version of the file at that path. If the owner has no
+ * file at that path yet, the file is created with version 1. Otherwise the next version number is used and
+ * the file keeps its id.
+ *
+ * The content is split into fixed-size chunks, each chunk is written to disk (a no-op for chunks that
+ * already exist), new chunks are recorded in the blobs table, and the version together with its ordered
+ * chunk list (the manifest) is registered in a single transaction.
  *
  * If a chunk fails to be written, nothing is recorded in the database. Chunks already written stay on
  * disk as unreferenced blobs, since they may be shared with other files.
@@ -50,7 +55,8 @@ struct FileInfo {
 std::expected<int64_t, BlobError> storeFile( Db& db, BlobStore& blobStore, int64_t ownerId, const File& file);
 
 /**
- * @brief Reads back the content of a file, by its row in the files table, by reading its chunks in manifest order.
+ * @brief Reads back the content of the latest version of a file, by its row in the files table, by reading
+ * the chunks of that version in manifest order.
  * @param db The database where the file is recorded.
  * @param blobStore The disk-backed store to read the chunks from.
  * @param fileId The id of the file to read.
@@ -60,6 +66,7 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
 
 /**
  * @brief Lists the files owned by a given user, without their content.
+ * Each file appears once, with the size and content type of its latest version.
  * @param db The database where the files are recorded.
  * @param ownerId The id of the user whose files to list.
  * @return The user's files ordered by id (empty if none), or a BlobError on failure.
@@ -67,7 +74,7 @@ std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fi
 std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerId);
 
 /**
- * @brief Deletes a file's record from the files table, together with its chunk manifest.
+ * @brief Deletes a file together with all its versions and their chunk manifests.
  *
  * The chunks themselves (rows in blobs and files on disk) are kept, since other files may reference the
  * same chunks. Orphaned chunks are left for a future garbage collection.
