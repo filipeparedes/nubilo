@@ -92,5 +92,5 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
  * @param version The version to roll back into.
  * @return The number of the new version on success, or a BlobError on failure (including when the filre or version does not exist.
  */
-std::expected<int, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
+std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
 }
