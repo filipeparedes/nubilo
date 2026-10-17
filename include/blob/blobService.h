@@ -84,4 +84,13 @@ std::expected<std::vector<FileInfo>, BlobError> listFiles(Db& db, int64_t ownerI
  */
 std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
 
+/**
+ * @brief Rolls back a file into one of its previous forms.
+ *
+ * @param db The database where the file is recorded.
+ * @param fileId The id of the file to rollback.
+ * @param version The version to roll back into.
+ * @return The number of the new version on success, or a BlobError on failure (including when the filre or version does not exist.
+ */
+std::expected<int, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
 }
