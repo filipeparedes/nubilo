@@ -1,6 +1,7 @@
 # blob
 
-Stores file content. A file is split into fixed-size chunks, each chunk is saved on disk under its SHA-256 hash, and the database keeps the ordered list of chunks that make up each file. Identical chunks are stored only once.
+Stores file content. A file is split into fixed-size chunks, each chunk is saved on disk under its SHA-256 hash, and the database keeps 
+the ordered list of chunks that make up each version of a file. Identical chunks are stored only once.
 
 ## Structure
 
@@ -20,11 +21,17 @@ Stores file content. A file is split into fixed-size chunks, each chunk is saved
 **Storing a file.**
 1. `chunkContent` splits the content into chunks of 4 MiB. The last chunk holds what remains and an empty file has no chunks.
 2. `BlobStore::store` hashes each chunk and writes it. If a blob with that hash already exists, nothing is written.
-3. In one database transaction, new chunks are added to `blobs`, the file is added to `files` and its chunks are added to `file_chunks` with their position.
+3. In one database transaction, new chunks are added to `blobs`, the file is added to `files` if it does not exist yet, a new row is added to `file_versions` and the chunks of that 
+version are added to `file_chunks` with their position.
 
-**Reading a file.** `readFile` reads the file's chunks from `file_chunks` in order, reads each one from the `BlobStore` and joins them.
+**Reading a file.** `readFile` finds the latest version of the file, reads its chunks from `file_chunks` in order, reads each one from the `BlobStore` and joins them.
 
-**Writes.** A blob is written to a temporary file with a unique name and then renamed to its final path. The rename is atomic, so a blob is never visible half-written, and two uploads of the same new content at the same time do not collide.
+**Versions.** A file is identified by its owner and path. Uploading to a path that already exists does not create a new file, it adds a new version to it: the file keeps its id and 
+the version number goes up by one. Each version has its own size, content type and chunk list. The current version is the one with the highest number, and reads and listings always 
+use it. Chunks that did not change between versions are the same blobs, so only the changed chunks take new space.
+
+**Writes.** A blob is written to a temporary file with a unique name and then renamed to its final path. The rename is atomic, so a blob is never visible half-written, and two 
+uploads of the same new content at the same time do not collide.
 
 **Deduplication.** Chunks are shared by hash across files and users. Two files with a chunk in common reference the same blob.
 
@@ -32,7 +39,8 @@ Stores file content. A file is split into fixed-size chunks, each chunk is saved
 
 ## Notes
 
-* **Deleting a file** removes its row and its chunk list, but not the chunks. Unreferenced chunks stay on disk until garbage collection is implemented.
-* **Chunk size** is the constant `DEFAULT_CHUNK_SIZE` in `blobService.cpp`. It is not configurable yet.
+* **Deleting a file** removes the file, all its versions and their chunk lists, but not the chunks. Unreferenced chunks 
+stay on disk until garbage collection is implemented.* **Chunk size** is the constant `DEFAULT_CHUNK_SIZE` in `blobService.cpp`. 
+It is not configurable yet.
 * **Memory.** A file is held in memory in full while it is uploaded and when it is read back.
 * **Hashing** uses the PicoSHA2 library.

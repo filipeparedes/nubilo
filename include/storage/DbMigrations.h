@@ -103,6 +103,63 @@ inline const std::vector<DbMigration> migrations = {
     "ALTER TABLE files_new RENAME TO files;"
     "ALTER TABLE blobs DROP COLUMN content_type;"
     },
+    {11,
+    "CREATE TABLE file_versions ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  file_id INTEGER NOT NULL,"
+    "  version INTEGER NOT NULL,"
+    "  size INTEGER NOT NULL,"
+    "  content_type TEXT,"
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  UNIQUE (file_id, version),"
+    "  FOREIGN KEY (file_id) REFERENCES files(id)"
+    ");"
+    },
+    {12,
+    //every existing file becomes version 1
+    "INSERT INTO file_versions (file_id, version, size, content_type, created_at)"
+    "  SELECT f.id, 1,"
+    "    COALESCE((SELECT SUM(b.size) FROM file_chunks fc"
+    "              JOIN blobs b ON b.content_hash = fc.chunk_hash"
+    "              WHERE fc.file_id = f.id), 0),"
+    "    f.content_type, f.created_at"
+    "  FROM files f;"
+    },
+    {13,
+    //the manifest now belongs to a version
+    "CREATE TABLE file_chunks_new ("
+    "  version_id INTEGER NOT NULL,"
+    "  position INTEGER NOT NULL,"
+    "  chunk_hash TEXT NOT NULL,"
+    "  PRIMARY KEY (version_id, position),"
+    "  FOREIGN KEY (version_id) REFERENCES file_versions(id),"
+    "  FOREIGN KEY (chunk_hash) REFERENCES blobs(content_hash)"
+    ");"
+    "INSERT INTO file_chunks_new (version_id, position, chunk_hash)"
+    "  SELECT v.id, fc.position, fc.chunk_hash"
+    "  FROM file_chunks fc JOIN file_versions v ON v.file_id = fc.file_id AND v.version = 1;"
+    "DROP TABLE file_chunks;"
+    "ALTER TABLE file_chunks_new RENAME TO file_chunks;"
+    "CREATE INDEX idx_file_chunks_chunk_hash ON file_chunks(chunk_hash);"
+    },
+    {14,
+    //files keeps only the identity: one row per owner and path
+    "CREATE TABLE files_new ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  owner_id INTEGER NOT NULL,"
+    "  path TEXT NOT NULL,"
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  UNIQUE (owner_id, path),"
+    "  FOREIGN KEY (owner_id) REFERENCES users(id)"
+    ");"
+    "INSERT INTO files_new (id, owner_id, path, created_at, updated_at)"
+    "  SELECT id, owner_id, path, created_at, updated_at FROM files;"
+    "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = 'files')"
+    "  WHERE name = 'files_new';"
+    "DROP TABLE files;"
+    "ALTER TABLE files_new RENAME TO files;"
+    },
     };
 
 }
