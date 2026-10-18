@@ -16,10 +16,11 @@ The hours in the development phases also account for any research/learning that 
 | 3 | File Endpoints & Storage | Upload, download, list, and delete endpoints; whole-file SHA-256 hashing; content-addressed storage on disk. Lives in nubilo. | ~60h 
 | 4 | File Chunking, Hashing & Deduplication | Splitting files into blocks, block-level hashing, and deduplication. The technical core of the project. | ~90h 
 | 5 | File Versioning | Tracking previous versions of a file, enabling rollback/history. | ~50h 
-| 6 | nubilo-client (Sync Client) | Local file-state cache, change detection, diffing and conflict groundwork. Lives in nubilo-client, a separate local executable. | ~70h 
-| 7 | nubilo-web & Extensions | Optional hosted frontend (nubilo-web), real-time notifications, and file sharing between users. Stretch goals, tackled once the core system is solid. | ~50h 
+| 6 | nubilo-client (Sync Client) | Folder support in the API (done first, since it changes the API contract), version listing and comparison, local file-state cache, change detection, diffing and conflict groundwork. Lives in nubilo and nubilo-client, a separate local executable. | ~70h 
+| 7 | nubilo-web | Hosted frontend (nubilo-web), end-to-end testing and documentation consolidation. | ~50h 
+| 8 | Polish & Delivery | Deployment and deployment guide, OpenAPI specification, orphan blob garbage collection and benchmarks. Real-time notifications and file sharing remain optional extras. | ~40h
 
-**Subtotal:** ~420h
+**Subtotal:** ~460h
 
 ## Cross-cutting activities
 
@@ -30,7 +31,7 @@ The hours in the development phases also account for any research/learning that 
 
 **Subtotal:** ~70h
 
-## Total: ~490h
+## Total: ~530h
 
 ## Notes on sequencing decisions
 
@@ -43,6 +44,14 @@ The hours in the development phases also account for any research/learning that 
   hashing work. Phase 3 uses a simple whole-file SHA-256 hash as a
   placeholder for this, which Phase 4 then replaces/extends with proper
   block-level chunking, hashing, and deduplication.
+- **Folders before the client:** folder support changes the API contract (paths, listing, operations on folders), 
+so it is done in Sprint 6 before the sync client is built on top of it, instead of changing the contract afterwards.
+- **CI pipeline early:** the pipeline (build and tests on every push and pull request) starts in Sprint 6, so that the
+rest of the project, including the client and the frontend, is built with automatic checks.
+- **Phase 8:** a final phase dedicated to polish and delivery: deploying the system, documenting how to deploy it, 
+specifying the API with OpenAPI, cleaning up orphan blobs and measuring the system (deduplication savings, version savings 
+and upload time with and without the thread pool). Real-time notifications and file sharing were taken out of Phase 7 so 
+the frontend stays focused, and remain optional extras.
 
 ---
 
@@ -96,6 +105,8 @@ to adjust scope during implementation.
 - Rollback mechanism (restore a previous version)
 
 ## v0.6 (Sprint 6) (nubilo + nubilo-client) (~68h)
+- Folder support (hierarchical paths, folder listing and operations), done first because it changes the API contract
+- CI pipeline (build and tests on every push and pull request)
 - Versioning completion: version listing endpoint, version comparison
 - Groundwork for conflict detection
 - API client for server communication
@@ -103,13 +114,21 @@ to adjust scope during implementation.
 - Change detection loop
 - Local file-state cache
 
-## v1.0 (Sprint 7) (nubilo-web + nubilo) (~67h)
+## v0.7 (Sprint 7) (nubilo-web + nubilo) (~67h)
 - Frontend project setup (Vite + React + TS, in `nubilo-web`)
 - Frontend: file browser / navigation UI
 - Frontend: upload/download UI
 - Frontend: file history view
 - Frontend: API integration layer (auth, fetching files)
-- Final end-to-end integration testing pass
+- End-to-end integration testing pass
+- Orphan blob garbage collection
+
+## v1.0 (Sprint 8) (nubilo + nubilo-web) (~40h)
+- Deployment of the server and the frontend
+- Deployment guide
+- OpenAPI specification of the API
+- Benchmarks (deduplication and version savings, upload time with and without the thread pool)
+- Final polish and fixes
 - Documentation consolidation (final report, etc..)
 
 ## Extras (if there is extra time available)
