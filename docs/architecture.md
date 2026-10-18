@@ -84,7 +84,7 @@ SQLite connection with RAII: opened once at startup, closed
 automatically on shutdown. Schema changes are applied through
 `DbMigrator`, which tracks which migrations have already run in a
 `schema_migrations` table and applies any new ones (defined in
-`Migrations.h`) in order, each wrapped in a transaction
+`DbMigrations.h`) in order, each wrapped in a transaction
 (`DbTransaction`) so a failure partway through a migration leaves the
 schema untouched rather than half-updated.
 
@@ -103,10 +103,16 @@ same pattern Git and Dropbox use internally.
 
 The database never stores file content directly as a BLOB, it only
 holds a reference to it (the hash). This keeps the database small and
-fast regardless of how much data is synced, and is a prerequisite for
-chunk-level deduplication (Phase 4): a chunk can be shared across files
+fast regardless of how much data is synced, and is what makes
+chunk-level deduplication possible: a chunk can be shared across files
 and users by reference (its hash) without duplicating it in the
 database.
+
+Each upload to a path that already exists adds a new version of that
+file instead of replacing it. A version is the file's metadata plus the
+ordered list of its chunks, so versions that share chunks share their
+storage, and restoring an old version only copies that list. See
+[ADR 0008](./decisions/0008-file-versions.md).
 
 ---
 
