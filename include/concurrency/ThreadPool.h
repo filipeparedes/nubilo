@@ -67,4 +67,24 @@ private:
     bool stopping_ = false;
 };
 
+template <typename F>
+auto ThreadPool::submit(F&& task) -> std::expected<std::future<std::invoke_result_t<F>>, ThreadPoolError> {
+    using Result = std::invoke_result_t<F>;
+
+    // std::function needs a copyable callable and packaged_task is move-only, hence the shared_ptr
+    auto packaged = std::make_shared<std::packaged_task<Result()>>(std::forward<F>(task));
+    std::future<Result> future = packaged->get_future();
+
+    {
+        std::lock_guard lock(mutex_);
+        if (stopping_)
+            return std::unexpected(ThreadPoolError{"The thread pool is stopping."});
+
+        tasks_.emplace([packaged]() { (*packaged)(); });
+    }
+    condition_.notify_one();
+
+    return future;
+}
+
 }
