@@ -695,3 +695,193 @@ TEST(BlobServiceTest, MigrationsKeepExistingFilesAsVersionOne) {
 
     std::filesystem::remove(dbPath);
 }
+
+TEST(BlobServiceTest, RollbackFileRestoresPreviousContentAsNewVersion) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File first{"notes.txt", "first version", "text/plain"};
+    nubilo::File second{"notes.txt", "second version", "text/plain"};
+    auto id = nubilo::storeFile(db, blobStore, 1, first);
+    ASSERT_TRUE(id.has_value());
+    ASSERT_TRUE(nubilo::storeFile(db, blobStore, 1, second).has_value());
+
+    auto rollbackResult = nubilo::rollbackFile(db, id.value(), 1);
+    ASSERT_TRUE(rollbackResult.has_value());
+    EXPECT_EQ(rollbackResult.value(), 3);
+
+    auto readResult = nubilo::readFile(db, blobStore, id.value());
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult->content, first.content);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, RollbackFileKeepsTheWholeHistory) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File first{"notes.txt", "first version", "text/plain"};
+    nubilo::File second{"notes.txt", "second version", "text/plain"};
+    auto id = nubilo::storeFile(db, blobStore, 1, first);
+    ASSERT_TRUE(id.has_value());
+    ASSERT_TRUE(nubilo::storeFile(db, blobStore, 1, second).has_value());
+    ASSERT_TRUE(nubilo::rollbackFile(db, id.value(), 1).has_value());
+
+    auto versions = db.query("SELECT version FROM file_versions WHERE file_id = ? ORDER BY version;",
+                             {std::to_string(id.value())});
+    ASSERT_TRUE(versions);
+    ASSERT_EQ(versions->size(), 3);
+    for (int i = 0; i < 3; ++i)
+        EXPECT_EQ((*versions)[i]["version"].get<int64_t>(), i + 1);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, RollbackFileRestoresSizeAndContentType) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File first{"notes.txt", "short", "text/plain"};
+    nubilo::File second{"notes.txt", "a much longer second version", "text/markdown"};
+    auto id = nubilo::storeFile(db, blobStore, 1, first);
+    ASSERT_TRUE(id.has_value());
+    ASSERT_TRUE(nubilo::storeFile(db, blobStore, 1, second).has_value());
+    ASSERT_TRUE(nubilo::rollbackFile(db, id.value(), 1).has_value());
+
+    auto listResult = nubilo::listFiles(db, 1);
+    ASSERT_TRUE(listResult.has_value());
+    ASSERT_EQ(listResult->size(), 1);
+    EXPECT_EQ((*listResult)[0].size, static_cast<int64_t>(first.content.size()));
+    EXPECT_EQ((*listResult)[0].contentType, "text/plain");
+
+    auto readResult = nubilo::readFile(db, blobStore, id.value());
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult->contentType, "text/plain");
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, RollbackFileCopiesTheChunkListWithoutNewBlobs) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    //three chunks in the first version, a single different chunk in the second
+    std::string content = std::string(TEST_CHUNK_SIZE, 'a') + std::string(TEST_CHUNK_SIZE, 'b') + "tail";
+    nubilo::File first{"big.bin", content, "application/octet-stream"};
+    nubilo::File second{"big.bin", "small", "application/octet-stream"};
+    auto id = nubilo::storeFile(db, blobStore, 1, first);
+    ASSERT_TRUE(id.has_value());
+    ASSERT_TRUE(nubilo::storeFile(db, blobStore, 1, second).has_value());
+
+    auto blobsBefore = db.query("SELECT COUNT(*) AS count FROM blobs;");
+    ASSERT_TRUE(blobsBefore);
+
+    ASSERT_TRUE(nubilo::rollbackFile(db, id.value(), 1).has_value());
+
+    //no chunk was written: the new version points to the existing blobs
+    auto blobsAfter = db.query("SELECT COUNT(*) AS count FROM blobs;");
+    ASSERT_TRUE(blobsAfter);
+    EXPECT_EQ((*blobsAfter)[0]["count"].get<int64_t>(), (*blobsBefore)[0]["count"].get<int64_t>());
+
+    auto chunks = db.query(
+        "SELECT file_chunks.position FROM file_chunks "
+        "JOIN file_versions ON file_versions.id = file_chunks.version_id "
+        "WHERE file_versions.file_id = ? AND file_versions.version = 3 ORDER BY file_chunks.position;",
+        {std::to_string(id.value())});
+    ASSERT_TRUE(chunks);
+    ASSERT_EQ(chunks->size(), 3);
+    for (int i = 0; i < 3; ++i)
+        EXPECT_EQ((*chunks)[i]["position"].get<int64_t>(), i);
+
+    auto readResult = nubilo::readFile(db, blobStore, id.value());
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult->content, content);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, RollbackFileCanBeRolledBackAgain) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File first{"notes.txt", "first version", "text/plain"};
+    nubilo::File second{"notes.txt", "second version", "text/plain"};
+    auto id = nubilo::storeFile(db, blobStore, 1, first);
+    ASSERT_TRUE(id.has_value());
+    ASSERT_TRUE(nubilo::storeFile(db, blobStore, 1, second).has_value());
+
+    ASSERT_TRUE(nubilo::rollbackFile(db, id.value(), 1).has_value());
+    auto secondRollback = nubilo::rollbackFile(db, id.value(), 2);
+    ASSERT_TRUE(secondRollback.has_value());
+    EXPECT_EQ(secondRollback.value(), 4);
+
+    auto readResult = nubilo::readFile(db, blobStore, id.value());
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult->content, second.content);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, RollbackFileReturnsErrorForNonexistentVersion) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    nubilo::File file{"notes.txt", "hello, nubilo", "text/plain"};
+    auto id = nubilo::storeFile(db, blobStore, 1, file);
+    ASSERT_TRUE(id.has_value());
+
+    EXPECT_FALSE(nubilo::rollbackFile(db, id.value(), 99).has_value());
+
+    //nothing was created
+    auto versions = db.query("SELECT COUNT(*) AS count FROM file_versions;");
+    ASSERT_TRUE(versions);
+    EXPECT_EQ((*versions)[0]["count"].get<int64_t>(), 1);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(BlobServiceTest, RollbackFileReturnsErrorForNonexistentFile) {
+    std::string dbPath = tempDbPath();
+    nubilo::Db db = makeMigratedDb(dbPath);
+
+    EXPECT_FALSE(nubilo::rollbackFile(db, 9999, 1).has_value());
+
+    std::filesystem::remove(dbPath);
+}
