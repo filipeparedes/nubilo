@@ -593,3 +593,239 @@ TEST(FileRoutesTest, DeleteRemovesFile) {
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
 }
+
+TEST(FileRoutesTest, RestoreCreatesNewVersionWithPreviousContent) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8112;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems firstItems = {{"file", "first version", "notes.txt", "text/plain"}};
+    httplib::MultipartFormDataItems secondItems = {{"file", "second version", "notes.txt", "text/plain"}};
+    auto firstUpload = client.Post("/files", headers, firstItems);
+    auto secondUpload = client.Post("/files", headers, secondItems);
+    ASSERT_TRUE(firstUpload);
+    ASSERT_TRUE(secondUpload);
+    int64_t fileId = nlohmann::json::parse(firstUpload->body)["id"].get<int64_t>();
+    ASSERT_EQ(nlohmann::json::parse(secondUpload->body)["id"].get<int64_t>(), fileId);
+
+    std::string restorePath = "/files/" + std::to_string(fileId) + "/versions/1/restore";
+    auto restoreResult = client.Post(restorePath, headers, "", "text/plain");
+    auto downloadResult = client.Get("/files/" + std::to_string(fileId), headers);
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(restoreResult);
+    EXPECT_EQ(restoreResult->status, 201);
+    auto body = nlohmann::json::parse(restoreResult->body);
+    EXPECT_EQ(body["id"].get<int64_t>(), fileId);
+    EXPECT_EQ(body["version"].get<int64_t>(), 3);
+
+    ASSERT_TRUE(downloadResult);
+    EXPECT_EQ(downloadResult->status, 200);
+    EXPECT_EQ(downloadResult->body, "first version");
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(FileRoutesTest, RestoreRejectsMissingToken) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8113;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto result = client.Post("/files/1/versions/1/restore", "", "text/plain");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(FileRoutesTest, RestoreReturnsNotFoundForNonexistentVersion) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8114;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems items = {{"file", "hello, nubilo", "notes.txt", "text/plain"}};
+    auto uploadResult = client.Post("/files", headers, items);
+    ASSERT_TRUE(uploadResult);
+    int64_t fileId = nlohmann::json::parse(uploadResult->body)["id"].get<int64_t>();
+
+    auto result = client.Post("/files/" + std::to_string(fileId) + "/versions/99/restore", headers, "", "text/plain");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 404);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(FileRoutesTest, RestoreReturnsNotFoundForNonexistentFile) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8115;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+    auto result = client.Post("/files/9999/versions/1/restore", headers, "", "text/plain");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 404);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
+
+TEST(FileRoutesTest, RestoreReturnsNotFoundForFileOwnedByAnotherUser) {
+    std::string dbPath = tempDbPath();
+    auto dbResult = nubilo::Db::open(dbPath);
+    ASSERT_TRUE(dbResult);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    ASSERT_TRUE(migrator.run(nubilo::migrations));
+
+    auto blobRootPath = tempBlobRoot();
+    auto blobStoreResult = nubilo::BlobStore::open(blobRootPath);
+    ASSERT_TRUE(blobStoreResult.has_value());
+    nubilo::BlobStore blobStore = std::move(*blobStoreResult);
+
+    constexpr int testPort = 8116;
+    nubilo::HttpServer server(testPort);
+    nubilo::Router router;
+    nubilo::registerAuthRoutes(router, db);
+    nubilo::registerFileRoutes(router, db, blobStore);
+    router.applyTo(server.getServer());
+
+    std::thread serverThread([&server]() { server.run(); });
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    std::string ownerToken = registerAndLoginAs(client, "owner@example.com");
+    std::string otherToken = registerAndLoginAs(client, "other@example.com");
+
+    httplib::MultipartFormDataItems items = {{"file", "private content", "secret.txt", "text/plain"}};
+    httplib::Headers ownerHeaders = {{"Authorization", "Bearer " + ownerToken}};
+    auto uploadResult = client.Post("/files", ownerHeaders, items);
+    ASSERT_TRUE(uploadResult);
+    int64_t fileId = nlohmann::json::parse(uploadResult->body)["id"].get<int64_t>();
+
+    httplib::Headers otherHeaders = {{"Authorization", "Bearer " + otherToken}};
+    auto result = client.Post("/files/" + std::to_string(fileId) + "/versions/1/restore", otherHeaders, "", "text/plain");
+
+    server.stop();
+    serverThread.join();
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 404);
+
+    //the owner's file was not touched
+    auto versions = db.query("SELECT COUNT(*) AS count FROM file_versions;");
+    ASSERT_TRUE(versions);
+    EXPECT_EQ((*versions)[0]["count"].get<int64_t>(), 1);
+
+    std::filesystem::remove(dbPath);
+    std::filesystem::remove_all(blobRootPath);
+}
