@@ -60,11 +60,11 @@ private:
     /** The loop each worker runs: take a task from the queue and run it, until the pool stops. */
     void workerLoop();
 
-    std::vector<std::jthread> workers_;
     std::queue<std::function<void()>> tasks_;
     std::mutex mutex_;
     std::condition_variable condition_;
     bool stopping_ = false;
+    std::vector<std::jthread> workers_;
 };
 
 template <typename F>
