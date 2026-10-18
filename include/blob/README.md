@@ -20,9 +20,14 @@ the ordered list of chunks that make up each version of a file. Identical chunks
 
 **Storing a file.**
 1. `chunkContent` splits the content into chunks of 4 MiB. The last chunk holds what remains and an empty file has no chunks.
-2. `BlobStore::store` hashes each chunk and writes it. If a blob with that hash already exists, nothing is written.
+2. `BlobStore::store` hashes each chunk and writes it. If a blob with that hash already exists, nothing is written. 
+When a thread pool is given and the file has more than one chunk, the chunks are written concurrently.
 3. In one database transaction, new chunks are added to `blobs`, the file is added to `files` if it does not exist yet, a new row is added to `file_versions` and the chunks of that 
 version are added to `file_chunks` with their position.
+
+**Concurrent chunk writes.** `storeFile` takes an optional `ThreadPool*` (see the `concurrency` module). With a pool, each chunk is written by a task and the results are collected in the original order, 
+so the manifest keeps the right positions. `storeFile` always waits for every task to finish before returning, even if one fails, because the tasks read the file content. Without a pool, or for a file with a single chunk, 
+the chunks are written one after another on the calling thread.
 
 **Reading a file.** `readFile` finds the latest version of the file, reads its chunks from `file_chunks` in order, reads each one from the `BlobStore` and joins them.
 

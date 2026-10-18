@@ -9,6 +9,8 @@
 
 namespace nubilo {
 
+class ThreadPool;
+
 /**
  * @struct File
  * @brief The data needed to store a file: where it goes and what it contains.
@@ -36,7 +38,7 @@ struct FileInfo {
 // -------------- FUNCTIONS -------------
 
 /**
-* @brief Stores content for a given owner as a new version of the file at that path. If the owner has no
+ * @brief Stores content for a given owner as a new version of the file at that path. If the owner has no
  * file at that path yet, the file is created with version 1. Otherwise the next version number is used and
  * the file keeps its id.
  *
@@ -50,9 +52,11 @@ struct FileInfo {
  * @param blobStore The disk-backed store to write the chunks to.
  * @param ownerId The id of the user who owns this file.
  * @param file The file to store.
+ * @param pool The thread pool used to write the chunks concurrently. If null, the chunks are written
+ * sequentially on the calling thread.
  * @return The new file's id on success, or a BlobError on failure.
  */
-std::expected<int64_t, BlobError> storeFile( Db& db, BlobStore& blobStore, int64_t ownerId, const File& file);
+std::expected<int64_t, BlobError> storeFile( Db& db, BlobStore& blobStore, int64_t ownerId, const File& file, ThreadPool* pool = nullptr);
 
 /**
  * @brief Reads back the content of the latest version of a file, by its row in the files table, by reading

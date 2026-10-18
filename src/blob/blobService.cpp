@@ -1,28 +1,67 @@
 #include "blob/blobService.h"
 
 #include "blob/chunker.h"
+#include "concurrency/ThreadPool.h"
 #include "storage/DbTransaction.h"
+
+#include <future>
 
 namespace nubilo {
 
 constexpr size_t DEFAULT_CHUNK_SIZE = 1024 * 1024 * 4;
 
-std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_t ownerId, const File& file) {
+std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_t ownerId, const File& file, ThreadPool* pool) {
     auto chunks = chunkContent(file.content, DEFAULT_CHUNK_SIZE);
     if (!chunks)
         return std::unexpected(chunks.error());
 
     std::vector<std::pair<std::string, size_t>> storeRes;
 
-    for (auto chunk : chunks.value()) {
-        //store it in disk
-        auto res = blobStore.store(chunk);
-        if (!res)
-            return std::unexpected(res.error());
+    auto storeChunk = [&blobStore](std::string_view chunk) {
+        return blobStore.store(chunk);
+    };
+    using StoreResult = std::invoke_result_t<decltype(storeChunk), std::string_view>;
 
-        storeRes.emplace_back(res.value(), chunk.size());
+    const auto& chunkList = chunks.value();
+    std::vector<StoreResult> results;
+    results.reserve(chunkList.size());
+    std::optional<BlobError> submitError;
+
+    //ThreadPool is present -> store concurrently
+    if (pool && chunkList.size() > 1) {
+        std::vector<std::future<StoreResult>> futures;
+        futures.reserve(chunkList.size());
+
+        for (auto chunk : chunkList) {
+            auto fut = pool->submit([&storeChunk, chunk] { return storeChunk(chunk); });
+            if (!fut) {
+                submitError = BlobError{fut.error().msg};
+                break;
+            }
+            futures.push_back(std::move(fut.value()));
+        }
+
+        // wait for EVERY task, even if one failed: the chunks point into file.content
+        for (auto& f : futures)
+            results.push_back(f.get());
+    } else {
+        //No threadpool (default nullptr) -> store sequentially
+        for (auto chunk : chunkList) {
+            results.push_back(storeChunk(chunk));
+            if (!results.back())
+                break;
+        }
     }
 
+    if (submitError)
+        return std::unexpected(*submitError);
+
+    for (size_t i = 0; i < results.size(); ++i) {
+        if (!results[i])
+            return std::unexpected(results[i].error());
+        storeRes.emplace_back(results[i].value(), chunkList[i].size());
+    }
+    
     auto lock = db.lock();
     auto tx = DbTransaction::begin(db);
     if (!tx)

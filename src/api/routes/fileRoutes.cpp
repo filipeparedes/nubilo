@@ -4,13 +4,14 @@
 #include "api/middleware.h"
 #include "blob/blobService.h"
 #include "storage/Db.h"
+#include "concurrency/ThreadPool.h"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
 namespace nubilo {
 
-static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token, ThreadPool* pool = nullptr) {
     if (!req.has_file("file")) {
         writeErrorResponse(res, 400, "INVALID_REQUEST", "Missing file.");
         return;
@@ -31,7 +32,7 @@ static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Reques
     int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
 
     File file{path, filePart.content, filePart.content_type};
-    auto storeRes = storeFile(db, blobStore, ownerId, file);
+    auto storeRes = storeFile(db, blobStore, ownerId, file, pool);
     if (!storeRes) {
         writeErrorResponse(res, 500, "UPLOAD_FAILED", "Could not store file.");
         return;
@@ -159,9 +160,9 @@ static void handleFileRollback(Db& db, const httplib::Request& req, httplib::Res
     res.set_content(responseBody.dump(), "application/json");
 }
 
-void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
-    router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
-        handleFileUpload(db, blobStore, req, res, token);
+void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool* pool) {
+    router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore, pool](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFileUpload(db, blobStore, req, res, token, pool);
     }));
     router.addRoute("GET", R"(/files/([0-9]+))", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileDownload(db, blobStore, req, res, token);
