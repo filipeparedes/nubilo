@@ -67,6 +67,7 @@ for why this was chosen over a microservices approach.
 - **Auth** — handles sessions/tokens and authorization checks.
 - **Storage** — persists all application metadata in SQLite: user accounts, sessions, sync-state and file metadata.
 - **Blob** - persists the actual file content on disk, as content-addressed storage.
+- **Concurrency** - runs work on several threads. Holds the thread pool that the blob module uses to write file chunks in parallel.
 
 Each module is expected to expose a narrow internal interface, so that if the
 project ever needed to extract a module into its own service (e.g. the sync
@@ -106,6 +107,19 @@ fast regardless of how much data is synced, and is a prerequisite for
 chunk-level deduplication (Phase 4): a chunk can be shared across files
 and users by reference (its hash) without duplicating it in the
 database.
+
+---
+
+## Concurrency
+
+Storing a large file means writing many independent chunks to disk. The `ThreadPool` class (`concurrency/`) lets `storeFile` 
+write them at the same time instead of one after another.
+
+The pool is a fixed set of worker threads that take tasks from a shared queue. It is created once in `main` and passed down to the file routes. 
+It is optional: without a pool, `storeFile` writes the chunks sequentially, so the server still works if the pool cannot be created.
+
+Writing chunks in parallel is safe because `BlobStore` writes each blob to a unique temporary file and renames it to its final path. 
+The database is only touched after every chunk has been written, so the transaction stays on a single thread.
 
 ---
 
