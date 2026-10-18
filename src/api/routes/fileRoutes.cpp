@@ -161,7 +161,7 @@ static void handleFileRollback(Db& db, const httplib::Request& req, httplib::Res
 }
 
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool* pool) {
-    router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore, pool](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token, pool);
     }));
     router.addRoute("GET", R"(/files/([0-9]+))", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
