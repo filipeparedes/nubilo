@@ -45,11 +45,10 @@ public:
      * An exception thrown by the task is stored in the returned future and rethrown by get().
      * @tparam F A callable that takes no arguments.
      * @param task The task to run.
-     * @return A future with the task's result.
-     * @throws std::runtime_error If the pool is already stopping.
+     * @return A future with the task's result on success, or ThreadPoolError on failure.
      */
     template<typename F>
-    auto submit(F&& task) -> std::future<std::invoke_result_t<F>>;
+    auto submit(F&& task) -> std::expected<std::future<std::invoke_result_t<F>>, ThreadPoolError>;
 
 private:
     /**
