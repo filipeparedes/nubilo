@@ -11,7 +11,7 @@ The HTTP layer: server, routing, authentication check and the route handlers. It
 | `middleware.h` / `middleware.cpp` | `requireAuth`: wraps a handler so it only runs for a valid session. |
 | `ErrorResponse.h` / `ErrorResponse.cpp` | `writeErrorResponse`: the single place that builds error bodies. |
 | `routes/authRoutes.*` | Registration, login and logout. |
-| `routes/fileRoutes.*` | Upload, download, list and delete files. |
+| `routes/fileRoutes.*` | Upload, download, list, delete and restore files. |
 | `routes/healthRoutes.*` | The health check. |
 
 ## How it works
@@ -36,7 +36,8 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `POST /auth/register` | no | JSON `email`, `password` | 201 `{"id": <userId>}` | 400 invalid body or email, 409 email already registered, 500 |
 | `POST /auth/login` | no | JSON `email`, `password` | 200 `{"token": "<token>"}` | 400 invalid body, 401 invalid credentials |
 | `POST /auth/logout` | yes | | 200 | 401, 500 |
-| `POST /files` | yes | multipart field `file`, optional `path` (defaults to the file name) | 201 `{"id": <fileId>}` | 400 missing file or path, 401, 500 |
+| `POST /files` | yes | multipart field `file`, optional `path` (defaults to the file name). Uploading to a path that already exists adds a new version of that file | 201 `{"id": <fileId>}` | 400 missing file or path, 401, 500 |
+| `POST /files/{id}/versions/{version}/restore` | yes | | 201 `{"id": <fileId>, "version": <newVersion>}` | 401, 404 file or version not found, 500 |
 | `GET /files` | yes | | 200 array of `{id, path, size, contentType, createdAt, updatedAt}` | 401, 500 |
 | `GET /files/{id}` | yes | | 200 file content, with `Content-Disposition: attachment` | 401, 404, 500 |
 | `DELETE /files/{id}` | yes | | 204 | 401, 404, 500 |
