@@ -37,3 +37,6 @@
 * D. Stolee. *Commits are snapshots, not diffs*. The GitHub Blog. https://github.blog/open-source/git/commits-are-snapshots-not-diffs/
 * Wikipedia. *Rollback (data management)*. https://en.wikipedia.org/wiki/Rollback_(data_management)
 * GeeksforGeeks. *File Versioning in Python*. https://www.geeksforgeeks.org/python/file-versioning-in-python/
+* Wikipedia. *Thread pool*. https://en.wikipedia.org/wiki/Thread_pool
+* GeeksforGeeks. *Thread Pool in C++*. https://www.geeksforgeeks.org/cpp/thread-pool-in-cpp/
+* C. Weaver. *Building a Thread Pool*. https://www.christopher-weaver.com/engineering/building-a-thread-pool/
