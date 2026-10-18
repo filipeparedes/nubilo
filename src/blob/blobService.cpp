@@ -213,11 +213,14 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
 
     //version to restore
     auto verQueryRes = db.query(
-        "SELECT id, size, content_type"
+        "SELECT id, size, content_type "
         "FROM file_versions WHERE file_id = ? AND version = ?;",
         {std::to_string(fileId), std::to_string(version)});
     if (!verQueryRes)
         return std::unexpected(BlobError{verQueryRes.error().msg});
+
+    if (verQueryRes.value().empty())
+        return std::unexpected(BlobError{"Version not found."});
 
     const auto& sourceRow = verQueryRes.value()[0];
     int64_t sourceVersionId = sourceRow["id"].get<int64_t>();
