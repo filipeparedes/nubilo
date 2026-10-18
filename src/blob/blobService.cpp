@@ -205,5 +205,65 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId) {
     return {};
 }
 
+std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version) {
+    auto lock = db.lock();
+    auto tx = DbTransaction::begin(db);
+    if (!tx)
+        return std::unexpected(BlobError{tx.error().msg});
+
+    //version to restore
+    auto verQueryRes = db.query(
+        "SELECT id, size, content_type "
+        "FROM file_versions WHERE file_id = ? AND version = ?;",
+        {std::to_string(fileId), std::to_string(version)});
+    if (!verQueryRes)
+        return std::unexpected(BlobError{verQueryRes.error().msg});
+
+    if (verQueryRes.value().empty())
+        return std::unexpected(BlobError{"Version not found."});
+
+    const auto& sourceRow = verQueryRes.value()[0];
+    int64_t sourceVersionId = sourceRow["id"].get<int64_t>();
+    int64_t size = sourceRow["size"].get<int64_t>();
+    std::string contentType = sourceRow["content_type"].is_null() ? "" : sourceRow["content_type"].get<std::string>();
+
+    //new version
+    auto newVerQueryRes = db.query(
+        "SELECT COALESCE(MAX(version), 0) + 1 AS next FROM file_versions WHERE file_id = ?;",
+        {std::to_string(fileId)});
+    if (!newVerQueryRes)
+        return std::unexpected(BlobError{newVerQueryRes.error().msg});
+
+    int64_t nextVersion = newVerQueryRes.value().at(0).at("next").get<int64_t>();
+
+    //insert the new version
+    auto verInsRes = db.exec(
+        "INSERT INTO file_versions (file_id, version, size, content_type) VALUES (?, ?, ?, ?);",
+        {std::to_string(fileId), std::to_string(nextVersion), std::to_string(size), contentType});
+    if (!verInsRes)
+        return std::unexpected(BlobError{verInsRes.error().msg});
+
+    int64_t newVersionId = db.lastInsertId();
+
+    // copy the chunk list of the restored version
+    auto chunksRes = db.exec(
+        "INSERT INTO file_chunks (version_id, position, chunk_hash) "
+        "SELECT ?, position, chunk_hash FROM file_chunks WHERE version_id = ?;",
+        {std::to_string(newVersionId), std::to_string(sourceVersionId)});
+    if (!chunksRes)
+        return std::unexpected(BlobError{chunksRes.error().msg});
+
+    auto touchRes = db.exec(
+        "UPDATE files SET updated_at = datetime('now') WHERE id = ?;",
+        {std::to_string(fileId)});
+    if (!touchRes)
+        return std::unexpected(BlobError{touchRes.error().msg});
+
+    auto commitRes = tx->commit();
+    if (!commitRes)
+        return std::unexpected(BlobError{commitRes.error().msg});
+
+    return nextVersion;
+}
 
 }

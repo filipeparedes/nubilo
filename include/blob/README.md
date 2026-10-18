@@ -30,6 +30,9 @@ version are added to `file_chunks` with their position.
 the version number goes up by one. Each version has its own size, content type and chunk list. The current version is the one with the highest number, and reads and listings always 
 use it. Chunks that did not change between versions are the same blobs, so only the changed chunks take new space.
 
+**Rollback.** `rollbackFile` restores a file to one of its earlier versions. It adds a new version with the size, content type and chunk list of the chosen one, 
+so the history is kept and a rollback can itself be rolled back. No chunk is written, because the new version points to the blobs that already exist.
+
 **Writes.** A blob is written to a temporary file with a unique name and then renamed to its final path. The rename is atomic, so a blob is never visible half-written, and two 
 uploads of the same new content at the same time do not collide.
 

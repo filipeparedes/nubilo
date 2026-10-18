@@ -34,3 +34,6 @@
 * P. Powell, I. Smalley. *What Is Data Deduplication?*. IBM Think. https://www.ibm.com/think/topics/data-deduplication
 * Oracle. *What Is Data Deduplication? Methods and Benefits*. https://www.oracle.com/africa/data-deduplication/
 * LLVM Project. *Content Addressable Storage*. https://llvm.org/docs/ContentAddressableStorage.html
+* D. Stolee. *Commits are snapshots, not diffs*. The GitHub Blog. https://github.blog/open-source/git/commits-are-snapshots-not-diffs/
+* Wikipedia. *Rollback (data management)*. https://en.wikipedia.org/wiki/Rollback_(data_management)
+* GeeksforGeeks. *File Versioning in Python*. https://www.geeksforgeeks.org/python/file-versioning-in-python/

@@ -123,6 +123,42 @@ static void handleFileDelete(Db& db, const httplib::Request& req, httplib::Respo
     res.status = 204;
 }
 
+static void handleFileRollback(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t fileId = std::stoll(req.matches[1]);
+    int64_t version = std::stoll(req.matches[2]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
+        return;
+    }
+
+    auto versionRes = db.query(
+        "SELECT 1 FROM file_versions WHERE file_id = ? AND version = ?;",
+        {std::to_string(fileId), std::to_string(version)});
+    if (!versionRes || versionRes.value().empty()) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "Version not found.");
+        return;
+    }
+
+    auto rollbackRes = rollbackFile(db, fileId, version);
+    if (!rollbackRes) {
+        writeErrorResponse(res, 500, "ROLLBACK_FAILED", "Could not restore file.");
+        return;
+    }
+
+    res.status = 201;
+    nlohmann::json responseBody = {{"id", fileId}, {"version", rollbackRes.value()}};
+    res.set_content(responseBody.dump(), "application/json");
+}
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token);
@@ -135,6 +171,9 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore) {
     }));
     router.addRoute("DELETE", R"(/files/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileDelete(db, req, res, token);
+    }));
+    router.addRoute("POST", R"(/files/([0-9]+)/versions/([0-9]+)/restore)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFileRollback(db, req, res, token);
     }));
 }
 
