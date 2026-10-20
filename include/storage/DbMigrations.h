@@ -160,6 +160,27 @@ inline const std::vector<DbMigration> migrations = {
     "DROP TABLE files;"
     "ALTER TABLE files_new RENAME TO files;"
     },
-    };
+    {15,
+    "CREATE TABLE folders ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  owner_id INTEGER NOT NULL,"
+    "  path TEXT NOT NULL,"
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+    "  UNIQUE (owner_id, path),"
+    "  FOREIGN KEY (owner_id) REFERENCES users(id)"
+    ");"
+    },
+    {16,
+    //every folder that already contains a file gets its own row, at any depth
+    "WITH RECURSIVE slashes (owner_id, path, pos) AS ("
+    "  SELECT owner_id, path, instr(path, '/') FROM files WHERE instr(path, '/') > 0"
+    "  UNION ALL"
+    "  SELECT owner_id, path, pos + instr(substr(path, pos + 1), '/')"
+    "  FROM slashes WHERE instr(substr(path, pos + 1), '/') > 0"
+    ")"
+    "INSERT OR IGNORE INTO folders (owner_id, path)"
+    "  SELECT DISTINCT owner_id, substr(path, 1, pos - 1) FROM slashes;"
+    },
+};
 
 }
