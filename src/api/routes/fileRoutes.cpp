@@ -3,8 +3,9 @@
 #include "api/Router.h"
 #include "api/middleware.h"
 #include "blob/blobService.h"
-#include "storage/Db.h"
+#include "blob/path.h"
 #include "concurrency/ThreadPool.h"
+#include "storage/Db.h"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
@@ -19,8 +20,9 @@ static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Reques
 
     const auto& filePart = req.get_file_value("file");
     std::string path = req.has_param("path") ? req.get_param_value("path") : filePart.filename;
-    if (path.empty()) {
-        writeErrorResponse(res, 400, "INVALID_REQUEST", "Missing file path.");
+    auto pathRes = validatePath(path);
+    if (!pathRes) {
+        writeErrorResponse(res, 400, "INVALID_PATH", pathRes.error().message);
         return;
     }
 
