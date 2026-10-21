@@ -97,4 +97,16 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
  * @return The number of the new version on success, or a BlobError on failure (including when the filre or version does not exist.
  */
 std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
+
+/**
+ * @brief Creates a folder for the given owner, together with any of its parent folders that do not
+ * exist yet. Creating a folder that already exists does nothing and returns its id.
+ *
+ * The folder and its parents are created in a single transaction.
+ * @param db The database to record the folder in.
+ * @param ownerId The id of the user who owns this folder.
+ * @param path The path of the folder, already validated (see validatePath).
+ * @return The folder's id on success, or a BlobError on failure.
+ */
+std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path);
 }
