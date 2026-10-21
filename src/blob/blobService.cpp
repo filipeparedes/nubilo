@@ -367,4 +367,56 @@ std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const st
     return folderId;
 }
 
+std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, const std::string& path) {
+    // direct children start with "<path>/" and have no further slash after it
+    const std::string prefix = path.empty() ? "" : path + "/";
+    const std::string owner = std::to_string(ownerId);
+
+    auto lock = db.lock();
+
+    auto foldersRes = db.query(
+        "SELECT id, path, created_at FROM folders "
+        "WHERE owner_id = ? "
+        "AND substr(path, 1, length(?)) = ? "
+        "AND instr(substr(path, length(?) + 1), '/') = 0 "
+        "ORDER BY path;",
+        {owner, prefix, prefix, prefix});
+    if (!foldersRes)
+        return std::unexpected(BlobError{foldersRes.error().msg});
+
+    auto filesRes = db.query(
+        "SELECT files.id, files.path, file_versions.size, file_versions.content_type, "
+        "files.created_at, files.updated_at "
+        "FROM files JOIN file_versions ON file_versions.file_id = files.id "
+        "WHERE files.owner_id = ? "
+        "AND substr(files.path, 1, length(?)) = ? "
+        "AND instr(substr(files.path, length(?) + 1), '/') = 0 "
+        "AND file_versions.version = "
+        "(SELECT MAX(version) FROM file_versions WHERE file_id = files.id) "
+        "ORDER BY files.path;",
+        {owner, prefix, prefix, prefix});
+    if (!filesRes)
+        return std::unexpected(BlobError{filesRes.error().msg});
+
+    FolderContents contents;
+    for (const auto& row : foldersRes.value()) {
+        contents.folders.push_back(FolderInfo{
+            row["id"].get<int64_t>(),
+            row["path"].get<std::string>(),
+            row["created_at"].get<std::string>()});
+    }
+
+    for (const auto& row : filesRes.value()) {
+        contents.files.push_back(FileInfo{
+            row["id"].get<int64_t>(),
+            row["path"].get<std::string>(),
+            row["size"].get<int64_t>(),
+            row["content_type"].is_null() ? "" : row["content_type"].get<std::string>(),
+            row["created_at"].get<std::string>(),
+            row["updated_at"].get<std::string>()});
+    }
+
+    return contents;
+}
+
 }
