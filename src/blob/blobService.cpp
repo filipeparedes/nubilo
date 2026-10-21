@@ -89,7 +89,7 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
             return std::unexpected(results[i].error());
         storeRes.emplace_back(results[i].value(), chunkList[i].size());
     }
-    
+
     auto lock = db.lock();
     auto tx = DbTransaction::begin(db);
     if (!tx)
@@ -335,6 +335,36 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
         return std::unexpected(BlobError{commitRes.error().msg});
 
     return nextVersion;
+}
+
+std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path) {
+    auto lock = db.lock();
+    auto tx = DbTransaction::begin(db);
+    if (!tx)
+        return std::unexpected(BlobError{tx.error().msg});
+
+    auto parentsRes = ensureParentFolders(db, ownerId, path);
+    if (!parentsRes)
+        return std::unexpected(parentsRes.error());
+
+    auto folderRes = insertFolder(db, ownerId, path);
+    if (!folderRes)
+        return std::unexpected(folderRes.error());
+
+    // lastInsertId does not work when the folder already existed, so the id is always looked up
+    auto findRes = db.query(
+        "SELECT id FROM folders WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), path});
+    if (!findRes)
+        return std::unexpected(BlobError{findRes.error().msg});
+
+    int64_t folderId = findRes.value().at(0).at("id").get<int64_t>();
+
+    auto commitRes = tx->commit();
+    if (!commitRes)
+        return std::unexpected(BlobError{commitRes.error().msg});
+
+    return folderId;
 }
 
 }
