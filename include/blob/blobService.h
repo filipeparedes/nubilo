@@ -35,6 +35,26 @@ struct FileInfo {
     std::string updatedAt;
 };
 
+/**
+ * @struct FolderInfo
+ * @brief A folder's metadata.
+ */
+struct FolderInfo {
+    int64_t id;
+    std::string path;
+    std::string createdAt;
+};
+
+/**
+ * @struct FolderContents
+ * @brief What a folder holds directly: its subfolders and its files.
+ * Files are described by their latest version, like in listFiles.
+ */
+struct FolderContents {
+    std::vector<FolderInfo> folders;
+    std::vector<FileInfo> files;
+};
+
 // -------------- FUNCTIONS -------------
 
 /**
