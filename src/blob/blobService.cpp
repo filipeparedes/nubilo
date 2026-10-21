@@ -1,6 +1,7 @@
 #include "blob/blobService.h"
 
 #include "blob/chunker.h"
+#include "blob/path.h"
 #include "concurrency/ThreadPool.h"
 #include "storage/DbTransaction.h"
 
@@ -8,7 +9,34 @@
 
 namespace nubilo {
 
+namespace {
+
 constexpr size_t DEFAULT_CHUNK_SIZE = 1024 * 1024 * 4;
+
+
+// inserts one folder row, does nothing if it already exists
+std::expected<void, BlobError> insertFolder(Db& db, int64_t ownerId, const std::string& path) {
+    auto res = db.exec(
+        "INSERT OR IGNORE INTO folders (owner_id, path) VALUES (?, ?);",
+        {std::to_string(ownerId), path});
+    if (!res)
+        return std::unexpected(BlobError{res.error().msg});
+
+    return {};
+}
+
+// makes sure every parent folder of a path exists: "a/b/c.txt" creates "a" and "a/b"
+std::expected<void, BlobError> ensureParentFolders(Db& db, int64_t ownerId, std::string_view path) {
+    for (const auto& parent : parentPaths(path)) {
+        auto res = insertFolder(db, ownerId, parent);
+        if (!res)
+            return res;
+    }
+
+    return {};
+}
+
+}
 
 std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_t ownerId, const File& file, ThreadPool* pool) {
     auto chunks = chunkContent(file.content, DEFAULT_CHUNK_SIZE);
@@ -75,6 +103,10 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
         if (!blobRes)
             return std::unexpected(BlobError{blobRes.error().msg});
     }
+
+    auto foldersRes = ensureParentFolders(db, ownerId, file.path);
+    if (!foldersRes)
+        return std::unexpected(foldersRes.error());
 
     // find the file for this owner and path, or create it
     auto findRes = db.query(
