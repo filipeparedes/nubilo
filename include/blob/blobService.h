@@ -57,6 +57,8 @@ struct FolderContents {
 
 // -------------- FUNCTIONS -------------
 
+// --------------- FILES ---------------
+
 /**
  * @brief Stores content for a given owner as a new version of the file at that path. If the owner has no
  * file at that path yet, the file is created with version 1. Otherwise the next version number is used and
@@ -118,6 +120,8 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
  */
 std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
 
+// ----------------- FOLDERS ----------------
+
 /**
  * @brief Creates a folder for the given owner, together with any of its parent folders that do not
  * exist yet. Creating a folder that already exists does nothing and returns its id.
@@ -129,4 +133,16 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
  * @return The folder's id on success, or a BlobError on failure.
  */
 std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path);
+
+/**
+ * @brief Lists what a folder holds directly: its subfolders and its files, ordered by path.
+ *
+ * Only the direct children are returned, not what is inside the subfolders. The root of the
+ * owner's files is listed with an empty path.
+ * @param db The database holding the folders and files.
+ * @param ownerId The id of the user who owns the folder.
+ * @param path The path of the folder, or an empty string for the root.
+ * @return The folder's contents on success, or a BlobError on failure.
+ */
+std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, const std::string& path);
 }
