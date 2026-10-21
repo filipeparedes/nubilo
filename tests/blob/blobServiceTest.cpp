@@ -1076,3 +1076,119 @@ TEST(BlobServiceTest, StoreFileWithSharedPoolHandlesConcurrentUploads) {
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
 }
+
+class ListFolderTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        dbPath_ = tempDbPath();
+        db_ = std::make_unique<nubilo::Db>(makeMigratedDb(dbPath_));
+
+        blobRoot_ = tempBlobRoot();
+        auto store = nubilo::BlobStore::open(blobRoot_);
+        ASSERT_TRUE(store.has_value());
+        blobStore_ = std::make_unique<nubilo::BlobStore>(std::move(*store));
+    }
+
+    void TearDown() override {
+        db_.reset();
+        std::filesystem::remove(dbPath_);
+        std::filesystem::remove_all(blobRoot_);
+    }
+
+    // stores a small text file, so the tests can build a folder tree quickly
+    void storeText(int64_t ownerId, const std::string& path, const std::string& content = "x") {
+        nubilo::File file{path, content, "text/plain"};
+        ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, ownerId, file).has_value());
+    }
+
+    static std::vector<std::string> paths(const nubilo::FolderContents& contents) {
+        std::vector<std::string> result;
+        for (const auto& folder : contents.folders)
+            result.push_back("folder:" + folder.path);
+        for (const auto& file : contents.files)
+            result.push_back("file:" + file.path);
+        return result;
+    }
+
+    std::string dbPath_;
+    std::filesystem::path blobRoot_;
+    std::unique_ptr<nubilo::Db> db_;
+    std::unique_ptr<nubilo::BlobStore> blobStore_;
+};
+
+TEST_F(ListFolderTest, RootListsTopLevelFoldersAndFiles) {
+    storeText(1, "notes.txt");
+    storeText(1, "docs/a.txt");
+    storeText(1, "docs/sub/b.txt");
+    storeText(1, "img/c.png");
+
+    auto result = nubilo::listFolder(*db_, 1, "");
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_EQ(paths(*result), (std::vector<std::string>{"folder:docs", "folder:img", "file:notes.txt"}));
+}
+
+TEST_F(ListFolderTest, ReturnsOnlyDirectChildren) {
+    storeText(1, "docs/a.txt");
+    storeText(1, "docs/sub/b.txt");
+    storeText(1, "docs/sub/deep/c.txt");
+
+    auto result = nubilo::listFolder(*db_, 1, "docs");
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_EQ(paths(*result), (std::vector<std::string>{"folder:docs/sub", "file:docs/a.txt"}));
+}
+
+TEST_F(ListFolderTest, DoesNotMixFoldersThatShareAPrefix) {
+    ASSERT_TRUE(nubilo::createFolder(*db_, 1, "a").has_value());
+    storeText(1, "ab/x.txt");
+
+    auto result = nubilo::listFolder(*db_, 1, "a");
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_TRUE(result->folders.empty());
+    EXPECT_TRUE(result->files.empty());
+}
+
+TEST_F(ListFolderTest, ShowsAnEmptyFolderInItsParent) {
+    ASSERT_TRUE(nubilo::createFolder(*db_, 1, "empty").has_value());
+
+    auto root = nubilo::listFolder(*db_, 1, "");
+    ASSERT_TRUE(root.has_value());
+    EXPECT_EQ(paths(*root), (std::vector<std::string>{"folder:empty"}));
+
+    auto inside = nubilo::listFolder(*db_, 1, "empty");
+    ASSERT_TRUE(inside.has_value());
+    EXPECT_TRUE(inside->folders.empty());
+    EXPECT_TRUE(inside->files.empty());
+}
+
+TEST_F(ListFolderTest, OnlyShowsTheOwnersItems) {
+    storeText(1, "docs/mine.txt");
+    storeText(2, "docs/theirs.txt");
+
+    auto result = nubilo::listFolder(*db_, 1, "docs");
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_EQ(paths(*result), (std::vector<std::string>{"file:docs/mine.txt"}));
+}
+
+TEST_F(ListFolderTest, FilesShowTheirLatestVersion) {
+    storeText(1, "docs/a.txt", "first");
+    storeText(1, "docs/a.txt", "second version");
+
+    auto result = nubilo::listFolder(*db_, 1, "docs");
+    ASSERT_TRUE(result.has_value());
+
+    ASSERT_EQ(result->files.size(), 1);
+    EXPECT_EQ(result->files[0].size, static_cast<int64_t>(std::string("second version").size()));
+}
+
+TEST_F(ListFolderTest, WorksWithNonAsciiFolderNames) {
+    storeText(1, "relat\xC3\xB3rios/2026.txt");
+
+    auto result = nubilo::listFolder(*db_, 1, "relat\xC3\xB3rios");
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_EQ(paths(*result), (std::vector<std::string>{"file:relat\xC3\xB3rios/2026.txt"}));
+}
