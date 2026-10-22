@@ -42,6 +42,16 @@ std::string registerAndLoginAs(httplib::Client& client, const std::string& email
     return nlohmann::json::parse(loginResult->body)["token"];
 }
 
+nubilo::Db makeMigratedDb(const std::string& path) {
+    auto dbResult = nubilo::Db::open(path);
+    nubilo::Db db = std::move(*dbResult);
+
+    nubilo::DbMigrator migrator(db);
+    auto res = migrator.run(nubilo::migrations);
+
+    return db;
+}
+
 }
 
 TEST(FileRoutesTest, UploadReturnsCreatedOnSuccess) {
@@ -828,4 +838,188 @@ TEST(FileRoutesTest, RestoreReturnsNotFoundForFileOwnedByAnotherUser) {
 
     std::filesystem::remove(dbPath);
     std::filesystem::remove_all(blobRootPath);
+}
+
+namespace {
+
+// A server with the auth and file routes running, for the folder route tests.
+struct FolderRoutesEnv {
+    explicit FolderRoutesEnv(int port)
+        : dbPath(tempDbPath()),
+          db(makeMigratedDb(dbPath)),
+          blobRoot(tempBlobRoot()),
+          blobStore(std::move(nubilo::BlobStore::open(blobRoot).value())),
+          server(port) {
+        nubilo::registerAuthRoutes(router, db);
+        nubilo::registerFileRoutes(router, db, blobStore);
+        router.applyTo(server.getServer());
+        serverThread = std::thread([this]() { server.run(); });
+    }
+
+    ~FolderRoutesEnv() {
+        server.stop();
+        serverThread.join();
+        std::filesystem::remove(dbPath);
+        std::filesystem::remove_all(blobRoot);
+    }
+
+    std::string dbPath;
+    nubilo::Db db;
+    std::filesystem::path blobRoot;
+    nubilo::BlobStore blobStore;
+    nubilo::HttpServer server;
+    nubilo::Router router;
+    std::thread serverThread;
+};
+
+}
+
+TEST(FolderRoutesTest, CreateFolderReturnsCreatedAndCreatesParents) {
+    constexpr int testPort = 8119;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto result = client.Post("/folders", headers, R"({"path":"docs/2026"})", "application/json");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 201);
+    EXPECT_TRUE(nlohmann::json::parse(result->body).contains("id"));
+
+    auto folders = env.db.query("SELECT path FROM folders ORDER BY path;");
+    ASSERT_TRUE(folders);
+    ASSERT_EQ(folders->size(), 2);
+    EXPECT_EQ((*folders)[0]["path"].get<std::string>(), "docs");
+    EXPECT_EQ((*folders)[1]["path"].get<std::string>(), "docs/2026");
+}
+
+TEST(FolderRoutesTest, CreateFolderRejectsInvalidPath) {
+    constexpr int testPort = 8120;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto result = client.Post("/folders", headers, R"({"path":"../secret"})", "application/json");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 400);
+    EXPECT_EQ(nlohmann::json::parse(result->body)["error"]["code"], "INVALID_PATH");
+}
+
+TEST(FolderRoutesTest, CreateFolderRejectsMissingPathField) {
+    constexpr int testPort = 8121;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto result = client.Post("/folders", headers, R"({"name":"docs"})", "application/json");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 400);
+    EXPECT_EQ(nlohmann::json::parse(result->body)["error"]["code"], "INVALID_REQUEST");
+}
+
+TEST(FolderRoutesTest, FolderRoutesRejectMissingToken) {
+    constexpr int testPort = 8122;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto create = client.Post("/folders", R"({"path":"docs"})", "application/json");
+    auto list = client.Get("/folders");
+
+    ASSERT_TRUE(create);
+    ASSERT_TRUE(list);
+    EXPECT_EQ(create->status, 401);
+    EXPECT_EQ(list->status, 401);
+}
+
+TEST(FolderRoutesTest, ListRootShowsFoldersAndFiles) {
+    constexpr int testPort = 8123;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    client.Post("/folders", headers, R"({"path":"docs"})", "application/json");
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "notes.txt", "text/plain"}
+    };
+    client.Post("/files", headers, items);
+
+    auto result = client.Get("/folders", headers);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->status, 200);
+    auto body = nlohmann::json::parse(result->body);
+    ASSERT_EQ(body["folders"].size(), 1);
+    EXPECT_EQ(body["folders"][0]["path"].get<std::string>(), "docs");
+    ASSERT_EQ(body["files"].size(), 1);
+    EXPECT_EQ(body["files"][0]["path"].get<std::string>(), "notes.txt");
+}
+
+TEST(FolderRoutesTest, ListFolderByIdShowsItsDirectChildren) {
+    constexpr int testPort = 8124;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto created = client.Post("/folders", headers, R"({"path":"docs"})", "application/json");
+    ASSERT_TRUE(created);
+    int64_t docsId = nlohmann::json::parse(created->body)["id"].get<int64_t>();
+
+    client.Post("/folders", headers, R"({"path":"docs/sub"})", "application/json");
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "notes.txt", "text/plain"}
+    };
+    client.Post("/files?path=docs/a.txt", headers, items);
+
+    auto result = client.Get("/folders/" + std::to_string(docsId), headers);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->status, 200);
+    auto body = nlohmann::json::parse(result->body);
+    ASSERT_EQ(body["folders"].size(), 1);
+    EXPECT_EQ(body["folders"][0]["path"].get<std::string>(), "docs/sub");
+    ASSERT_EQ(body["files"].size(), 1);
+    EXPECT_EQ(body["files"][0]["path"].get<std::string>(), "docs/a.txt");
+}
+
+TEST(FolderRoutesTest, ListFolderReturnsNotFoundForMissingOrForeignFolder) {
+    constexpr int testPort = 8125;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string otherToken = registerAndLoginAs(client, "other@example.com");
+    httplib::Headers otherHeaders = {{"Authorization", "Bearer " + otherToken}};
+    auto created = client.Post("/folders", otherHeaders, R"({"path":"private"})", "application/json");
+    ASSERT_TRUE(created);
+    int64_t foreignId = nlohmann::json::parse(created->body)["id"].get<int64_t>();
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto foreign = client.Get("/folders/" + std::to_string(foreignId), headers);
+    auto missing = client.Get("/folders/9999", headers);
+
+    ASSERT_TRUE(foreign);
+    ASSERT_TRUE(missing);
+    EXPECT_EQ(foreign->status, 404);
+    EXPECT_EQ(missing->status, 404);
 }
