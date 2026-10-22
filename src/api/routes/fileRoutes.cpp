@@ -12,6 +12,32 @@
 
 namespace nubilo {
 
+// -------- HELPER FUNCTIONS --------------
+static nlohmann::json folderContentsToJson(const FolderContents& contents) {
+    nlohmann::json folders = nlohmann::json::array();
+    for (const auto& folder : contents.folders) {
+        folders.push_back({
+            {"id", folder.id},
+            {"path", folder.path},
+            {"createdAt", folder.createdAt}});
+    }
+
+    nlohmann::json files = nlohmann::json::array();
+    for (const auto& file : contents.files) {
+        files.push_back({
+            {"id", file.id},
+            {"path", file.path},
+            {"size", file.size},
+            {"contentType", file.contentType},
+            {"createdAt", file.createdAt},
+            {"updatedAt", file.updatedAt}});
+    }
+
+    return {{"folders", folders}, {"files", files}};
+}
+
+// ------------- ROUTES -------------------
+
 static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token, ThreadPool* pool = nullptr) {
     if (!req.has_file("file")) {
         writeErrorResponse(res, 400, "INVALID_REQUEST", "Missing file.");
@@ -162,6 +188,39 @@ static void handleFileRollback(Db& db, const httplib::Request& req, httplib::Res
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    // is_discarded() catches malformed JSON without throwing
+    nlohmann::json body = nlohmann::json::parse(req.body, nullptr, false);
+    if (body.is_discarded() || !body.contains("path") || !body["path"].is_string()) {
+        writeErrorResponse(res, 400, "INVALID_REQUEST", "Request body must be JSON with a string field 'path'.");
+        return;
+    }
+
+    std::string path = body["path"].get<std::string>();
+    auto pathRes = validatePath(path);
+    if (!pathRes) {
+        writeErrorResponse(res, 400, "INVALID_PATH", pathRes.error().message);
+        return;
+    }
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto createRes = createFolder(db, ownerId, path);
+    if (!createRes) {
+        writeErrorResponse(res, 500, "CREATE_FOLDER_FAILED", "Could not create folder.");
+        return;
+    }
+
+    res.status = 201;
+    nlohmann::json responseBody = {{"id", createRes.value()}};
+    res.set_content(responseBody.dump(), "application/json");
+}
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool* pool) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore, pool](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token, pool);
@@ -177,6 +236,9 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     }));
     router.addRoute("POST", R"(/files/([0-9]+)/versions/([0-9]+)/restore)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileRollback(db, req, res, token);
+    }));
+    router.addRoute("POST", "/folders", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFolderCreate(db, req, res, token);
     }));
 }
 
