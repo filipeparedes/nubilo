@@ -36,6 +36,17 @@ static nlohmann::json folderContentsToJson(const FolderContents& contents) {
     return {{"folders", folders}, {"files", files}};
 }
 
+static void writeFolderContents(Db& db, int64_t ownerId, const std::string& path, httplib::Response& res) {
+    auto listRes = listFolder(db, ownerId, path);
+    if (!listRes) {
+        writeErrorResponse(res, 500, "LIST_FAILED", "Could not list folder.");
+        return;
+    }
+
+    res.status = 200;
+    res.set_content(folderContentsToJson(listRes.value()).dump(), "application/json");
+}
+
 // ------------- ROUTES -------------------
 
 static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token, ThreadPool* pool = nullptr) {
@@ -221,6 +232,39 @@ static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Res
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleFolderRootList(Db& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    writeFolderContents(db, ownerId, "", res);
+}
+
+static void handleFolderListById(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t folderId = std::stoll(req.matches[1]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    // a folder that belongs to someone else is answered like a missing one
+    auto folderRes = db.query(
+        "SELECT path FROM folders WHERE id = ? AND owner_id = ?;",
+        {std::to_string(folderId), std::to_string(ownerId)});
+    if (!folderRes || folderRes.value().empty()) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "Folder not found.");
+        return;
+    }
+
+    writeFolderContents(db, ownerId, folderRes.value()[0]["path"].get<std::string>(), res);
+}
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool* pool) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore, pool](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token, pool);
@@ -239,6 +283,12 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     }));
     router.addRoute("POST", "/folders", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderCreate(db, req, res, token);
+    }));
+    router.addRoute("GET", "/folders", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFolderRootList(db, req, res, token);
+    }));
+    router.addRoute("GET", R"(/folders/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFolderListById(db, req, res, token);
     }));
 }
 
