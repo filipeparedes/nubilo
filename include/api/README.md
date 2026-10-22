@@ -41,6 +41,9 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `GET /files` | yes | | 200 array of `{id, path, size, contentType, createdAt, updatedAt}` | 401, 500 |
 | `GET /files/{id}` | yes | | 200 file content, with `Content-Disposition: attachment` | 401, 404, 500 |
 | `DELETE /files/{id}` | yes | | 204 | 401, 404, 500 |
+| `POST /folders` | yes | JSON `path`. Parent folders that do not exist are created too, and creating a folder that already exists returns its id | 201 `{"id": <folderId>}` | 400 invalid body or path, 401, 500 |
+| `GET /folders` | yes | | 200 `{"folders": [{id, path, createdAt}], "files": [{id, path, size, contentType, createdAt, updatedAt}]}`: the subfolders and files at the root | 401, 500 |
+| `GET /folders/{id}` | yes | | 200 same shape, with the direct subfolders and files of that folder | 401, 404, 500 |
 
 ## Notes
 
