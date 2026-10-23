@@ -14,8 +14,36 @@ namespace {
 constexpr size_t DEFAULT_CHUNK_SIZE = 1024 * 1024 * 4;
 
 
-// inserts one folder row, does nothing if it already exists
+// true if the owner has a file at exactly this path
+std::expected<bool, BlobError> fileExistsAt(Db& db, int64_t ownerId, const std::string& path) {
+    auto res = db.query(
+        "SELECT id FROM files WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), path});
+    if (!res)
+        return std::unexpected(BlobError{res.error().msg});
+
+    return !res.value().empty();
+}
+
+// true if the owner has a folder at exactly this path
+std::expected<bool, BlobError> folderExistsAt(Db& db, int64_t ownerId, const std::string& path) {
+    auto res = db.query(
+        "SELECT id FROM folders WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), path});
+    if (!res)
+        return std::unexpected(BlobError{res.error().msg});
+
+    return !res.value().empty();
+}
+
+// inserts one folder row, does nothing if it already exists, fails with Conflict if a file has that path
 std::expected<void, BlobError> insertFolder(Db& db, int64_t ownerId, const std::string& path) {
+    auto fileRes = fileExistsAt(db, ownerId, path);
+    if (!fileRes)
+        return std::unexpected(fileRes.error());
+    if (fileRes.value())
+        return std::unexpected(BlobError{"A file already exists at '" + path + "'.", BlobErrorType::Conflict});
+
     auto res = db.exec(
         "INSERT OR IGNORE INTO folders (owner_id, path) VALUES (?, ?);",
         {std::to_string(ownerId), path});
@@ -117,6 +145,13 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
 
     int64_t fId;
     if (findRes.value().empty()) {
+        //a folder at this path would clash with the new file
+        auto folderRes = folderExistsAt(db, ownerId, file.path);
+        if (!folderRes)
+            return std::unexpected(folderRes.error());
+        if (folderRes.value())
+            return std::unexpected(BlobError{"A folder already exists at '" + file.path + "'.", BlobErrorType::Conflict});
+
         auto fileRes = db.exec(
             "INSERT INTO files (owner_id, path) VALUES (?, ?);",
             {std::to_string(ownerId), file.path});
@@ -471,7 +506,7 @@ std::expected<void, BlobError> deleteFolder(Db& db, int64_t folderId) {
     auto folderDelRes = db.exec("DELETE FROM folders WHERE id = ?;", {std::to_string(folderId)});
     if (!folderDelRes)
         return std::unexpected(BlobError{folderDelRes.error().msg});
-    
+
     auto commitRes = tx->commit();
     if (!commitRes)
         return std::unexpected(BlobError{commitRes.error().msg});

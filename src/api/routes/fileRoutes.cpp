@@ -75,7 +75,10 @@ static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Reques
     File file{path, filePart.content, filePart.content_type};
     auto storeRes = storeFile(db, blobStore, ownerId, file, pool);
     if (!storeRes) {
-        writeErrorResponse(res, 500, "UPLOAD_FAILED", "Could not store file.");
+        if (storeRes.error().type == BlobErrorType::Conflict)
+            writeErrorResponse(res, 409, "PATH_CONFLICT", storeRes.error().message);
+        else
+            writeErrorResponse(res, 500, "UPLOAD_FAILED", "Could not store file.");
         return;
     }
 
@@ -227,7 +230,10 @@ static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Res
 
     auto createRes = createFolder(db, ownerId, path);
     if (!createRes) {
-        writeErrorResponse(res, 500, "CREATE_FOLDER_FAILED", "Could not create folder.");
+        if (createRes.error().type == BlobErrorType::Conflict)
+            writeErrorResponse(res, 409, "PATH_CONFLICT", createRes.error().message);
+        else
+            writeErrorResponse(res, 500, "CREATE_FOLDER_FAILED", "Could not create folder.");
         return;
     }
 
