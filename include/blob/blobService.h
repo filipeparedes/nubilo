@@ -145,4 +145,17 @@ std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const st
  * @return The folder's contents on success, or a BlobError on failure.
  */
 std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, const std::string& path);
+
+/**
+ * @brief Deletes a folder together with everything inside it: its subfolders, its files and all the
+ * versions and chunk manifests of those files.
+ *
+ * Like deleteFile, it keeps the chunks themselves (rows in blobs and files on disk), since other files
+ * may reference them. Orphaned chunks are left for a future garbage collection. The parent folders are
+ * kept.
+ * @param db The database where the folder is recorded.
+ * @param folderId The id of the folder to delete.
+ * @return Nothing on success, or a BlobError on failure.
+ */
+std::expected<void, BlobError> deleteFolder(Db& db, int64_t folderId);
 }
