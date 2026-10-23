@@ -1023,3 +1023,91 @@ TEST(FolderRoutesTest, ListFolderReturnsNotFoundForMissingOrForeignFolder) {
     EXPECT_EQ(foreign->status, 404);
     EXPECT_EQ(missing->status, 404);
 }
+
+TEST(FolderRoutesTest, DeleteRemovesFolderAndEverythingInsideIt) {
+    constexpr int testPort = 8127;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto created = client.Post("/folders", headers, R"({"path":"docs"})", "application/json");
+    ASSERT_TRUE(created);
+    int64_t id = nlohmann::json::parse(created->body)["id"].get<int64_t>();
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "notes.txt", "text/plain"}
+    };
+    client.Post("/files?path=docs/sub/a.txt", headers, items);
+
+    auto result = client.Delete("/folders/" + std::to_string(id), headers);
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 204);
+    auto files = env.db.query("SELECT id FROM files;");
+    auto folders = env.db.query("SELECT id FROM folders;");
+    ASSERT_TRUE(files);
+    ASSERT_TRUE(folders);
+    EXPECT_TRUE(files->empty());
+    EXPECT_TRUE(folders->empty());
+}
+
+TEST(FolderRoutesTest, DeleteRemovesEmptyFolder) {
+    constexpr int testPort = 8126;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto created = client.Post("/folders", headers, R"({"path":"docs"})", "application/json");
+    ASSERT_TRUE(created);
+    int64_t id = nlohmann::json::parse(created->body)["id"].get<int64_t>();
+
+    auto result = client.Delete("/folders/" + std::to_string(id), headers);
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 204);
+    auto rows = env.db.query("SELECT id FROM folders;");
+    ASSERT_TRUE(rows);
+    EXPECT_TRUE(rows->empty());
+}
+
+TEST(FolderRoutesTest, DeleteRejectsMissingToken) {
+    constexpr int testPort = 8128;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto result = client.Delete("/folders/1");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+}
+
+TEST(FolderRoutesTest, DeleteReturnsNotFoundForMissingOrForeignFolder) {
+    constexpr int testPort = 8129;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string otherToken = registerAndLoginAs(client, "other@example.com");
+    httplib::Headers otherHeaders = {{"Authorization", "Bearer " + otherToken}};
+    auto created = client.Post("/folders", otherHeaders, R"({"path":"private"})", "application/json");
+    ASSERT_TRUE(created);
+    int64_t foreignId = nlohmann::json::parse(created->body)["id"].get<int64_t>();
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto foreign = client.Delete("/folders/" + std::to_string(foreignId), headers);
+    auto missing = client.Delete("/folders/9999", headers);
+
+    ASSERT_TRUE(foreign);
+    ASSERT_TRUE(missing);
+    EXPECT_EQ(foreign->status, 404);
+    EXPECT_EQ(missing->status, 404);
+}
