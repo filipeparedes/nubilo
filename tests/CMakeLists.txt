@@ -27,7 +27,7 @@ add_executable(nubilo_tests
         api/AuthRoutesTest.cpp
         blob/BlobStoreTest.cpp
         blob/blobServiceTest.cpp
-        blob/fileRoutesTest.cpp
+        api/fileRoutesTest.cpp
         blob/chunkerTest.cpp
         concurrency/ThreadPoolTest.cpp
         blob/pathTest.cpp
