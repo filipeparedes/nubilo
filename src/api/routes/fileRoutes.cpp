@@ -49,6 +49,8 @@ static void writeFolderContents(Db& db, int64_t ownerId, const std::string& path
 
 // ------------- ROUTES -------------------
 
+// -------------- FILES ---------------
+
 static void handleFileUpload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token, ThreadPool* pool = nullptr) {
     if (!req.has_file("file")) {
         writeErrorResponse(res, 400, "INVALID_REQUEST", "Missing file.");
@@ -199,6 +201,8 @@ static void handleFileRollback(Db& db, const httplib::Request& req, httplib::Res
     res.set_content(responseBody.dump(), "application/json");
 }
 
+// ------------------- FOLDERS ---------------
+
 static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
     // is_discarded() catches malformed JSON without throwing
     nlohmann::json body = nlohmann::json::parse(req.body, nullptr, false);
@@ -265,6 +269,32 @@ static void handleFolderListById(Db& db, const httplib::Request& req, httplib::R
     writeFolderContents(db, ownerId, folderRes.value()[0]["path"].get<std::string>(), res);
 }
 
+static void handleFolderDelete(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t folderId = std::stoll(req.matches[1]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM folders WHERE id = ?;", {std::to_string(folderId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "Folder not found.");
+        return;
+    }
+
+    auto delRes = deleteFolder(db, folderId);
+    if (!delRes) {
+        writeErrorResponse(res, 500, "DELETE_FAILED", "Could not delete folder.");
+    }
+
+    res.status = 204;
+}
+
+// =========================================
+
 void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool* pool) {
     router.addRoute("POST", "/files", requireAuth(db, [&db, &blobStore, pool](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileUpload(db, blobStore, req, res, token, pool);
@@ -289,6 +319,9 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     }));
     router.addRoute("GET", R"(/folders/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderListById(db, req, res, token);
+    }));
+    router.addRoute("DELETE", R"(/folders/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleFolderDelete(db, req, res, token);
     }));
 }
 
