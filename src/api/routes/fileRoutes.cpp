@@ -288,6 +288,7 @@ static void handleFolderDelete(Db& db, const httplib::Request& req, httplib::Res
     auto delRes = deleteFolder(db, folderId);
     if (!delRes) {
         writeErrorResponse(res, 500, "DELETE_FAILED", "Could not delete folder.");
+        return;
     }
 
     res.status = 204;
