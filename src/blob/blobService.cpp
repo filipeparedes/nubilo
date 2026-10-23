@@ -419,4 +419,67 @@ std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, con
     return contents;
 }
 
+std::expected<void, BlobError> deleteFolder(Db& db, int64_t folderId) {
+    auto lock = db.lock();
+    auto tx = DbTransaction::begin(db);
+    if (!tx)
+        return std::unexpected(BlobError{tx.error().msg});
+
+    auto folderRes = db.query("SELECT owner_id, path FROM folders WHERE id = ?;", {std::to_string(folderId)});
+    if (!folderRes)
+        return std::unexpected(BlobError{folderRes.error().msg});
+    if (folderRes.value().empty())
+        return std::unexpected(BlobError{"Folder not found."});
+
+    std::string ownerId = std::to_string(folderRes.value()[0]["owner_id"].get<int64_t>());
+    //everything inside the folder, at any depth, starts with this prefix
+    //the trailing slash stops "docs" from matching "docs2/..."
+    std::string prefix = folderRes.value()[0]["path"].get<std::string>() + "/";
+
+    //chunk manifests of every version of every file inside
+    auto chunksRes = db.exec(
+        "DELETE FROM file_chunks WHERE version_id IN ("
+        "  SELECT v.id FROM file_versions v JOIN files f ON f.id = v.file_id"
+        "  WHERE f.owner_id = ? AND substr(f.path, 1, length(?)) = ?);",
+        {ownerId, prefix, prefix});
+    if (!chunksRes)
+        return std::unexpected(BlobError{chunksRes.error().msg});
+
+    //the versions themselves
+    auto versionsRes = db.exec(
+        "DELETE FROM file_versions WHERE file_id IN ("
+        "  SELECT id FROM files WHERE owner_id = ? AND substr(path, 1, length(?)) = ?);",
+        {ownerId, prefix, prefix});
+    if (!versionsRes)
+        return std::unexpected(BlobError{versionsRes.error().msg});
+
+    //the files
+    auto filesRes = db.exec(
+        "DELETE FROM files WHERE owner_id = ? AND substr(path, 1, length(?)) = ?;",
+        {ownerId, prefix, prefix});
+    if (!filesRes)
+        return std::unexpected(BlobError{filesRes.error().msg});
+
+    //the subfolders, at any depth
+    auto subfoldersRes = db.exec(
+        "DELETE FROM folders WHERE owner_id = ? AND substr(path, 1, length(?)) = ?;",
+        {ownerId, prefix, prefix});
+    if (!subfoldersRes)
+        return std::unexpected(BlobError{subfoldersRes.error().msg});
+
+    //the folder itself
+    auto folderDelRes = db.exec("DELETE FROM folders WHERE id = ?;", {std::to_string(folderId)});
+    if (!folderDelRes)
+        return std::unexpected(BlobError{folderDelRes.error().msg});
+    
+    auto commitRes = tx->commit();
+    if (!commitRes)
+        return std::unexpected(BlobError{commitRes.error().msg});
+
+    //TODO: Handle actual blob deletion (same as deleteFile: only orphan blobs may be removed)
+
+    return {};
+}
+
+
 }
