@@ -1111,3 +1111,45 @@ TEST(FolderRoutesTest, DeleteReturnsNotFoundForMissingOrForeignFolder) {
     EXPECT_EQ(foreign->status, 404);
     EXPECT_EQ(missing->status, 404);
 }
+
+TEST(FolderRoutesTest, CreateFolderReturnsConflictWhenFileHasThatPath) {
+    constexpr int testPort = 8130;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "docs", "text/plain"}
+    };
+    client.Post("/files", headers, items);
+
+    auto result = client.Post("/folders", headers, R"({"path":"docs"})", "application/json");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 409);
+    EXPECT_EQ(nlohmann::json::parse(result->body)["error"]["code"], "PATH_CONFLICT");
+}
+
+TEST(FolderRoutesTest, UploadReturnsConflictWhenFolderHasThatPath) {
+    constexpr int testPort = 8131;
+    FolderRoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    client.Post("/folders", headers, R"({"path":"docs"})", "application/json");
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "docs", "text/plain"}
+    };
+
+    auto result = client.Post("/files", headers, items);
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 409);
+    EXPECT_EQ(nlohmann::json::parse(result->body)["error"]["code"], "PATH_CONFLICT");
+}
