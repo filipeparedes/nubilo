@@ -36,6 +36,17 @@ struct FileInfo {
 };
 
 /**
+ * @struct VersionInfo
+ * @brief The metadata of one version of a file, without its content.
+ */
+struct VersionInfo {
+    int64_t version;
+    int64_t size;
+    std::string contentType;
+    std::string createdAt;
+};
+
+/**
  * @struct FolderInfo
  * @brief A folder's metadata.
  */
