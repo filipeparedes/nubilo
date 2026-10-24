@@ -131,6 +131,17 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
  */
 std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
 
+/**
+ * @brief Lists the versions of a file, newest first.
+ *
+ * The first version of the list is the current one. A version created by a rollback is listed like any other.
+ * @param db The database where the file is recorded.
+ * @param fileId The id of the file.
+ * @return The versions ordered from the highest version number to the lowest (empty if the file has none or
+ * does not exist), or a BlobError on failure.
+ */
+std::expected<std::vector<VersionInfo>, BlobError> listVersions(Db& db, int64_t fileId);
+
 // ----------------- FOLDERS ----------------
 
 /**
