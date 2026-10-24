@@ -52,6 +52,36 @@ nubilo::Db makeMigratedDb(const std::string& path) {
     return db;
 }
 
+// A server with the auth and file routes running, for the folder route tests.
+struct RoutesEnv {
+    explicit RoutesEnv(int port)
+        : dbPath(tempDbPath()),
+          db(makeMigratedDb(dbPath)),
+          blobRoot(tempBlobRoot()),
+          blobStore(std::move(nubilo::BlobStore::open(blobRoot).value())),
+          server(port) {
+        nubilo::registerAuthRoutes(router, db);
+        nubilo::registerFileRoutes(router, db, blobStore);
+        router.applyTo(server.getServer());
+        serverThread = std::thread([this]() { server.run(); });
+    }
+
+    ~RoutesEnv() {
+        server.stop();
+        serverThread.join();
+        std::filesystem::remove(dbPath);
+        std::filesystem::remove_all(blobRoot);
+    }
+
+    std::string dbPath;
+    nubilo::Db db;
+    std::filesystem::path blobRoot;
+    nubilo::BlobStore blobStore;
+    nubilo::HttpServer server;
+    nubilo::Router router;
+    std::thread serverThread;
+};
+
 }
 
 TEST(FileRoutesTest, UploadReturnsCreatedOnSuccess) {
@@ -840,43 +870,9 @@ TEST(FileRoutesTest, RestoreReturnsNotFoundForFileOwnedByAnotherUser) {
     std::filesystem::remove_all(blobRootPath);
 }
 
-namespace {
-
-// A server with the auth and file routes running, for the folder route tests.
-struct FolderRoutesEnv {
-    explicit FolderRoutesEnv(int port)
-        : dbPath(tempDbPath()),
-          db(makeMigratedDb(dbPath)),
-          blobRoot(tempBlobRoot()),
-          blobStore(std::move(nubilo::BlobStore::open(blobRoot).value())),
-          server(port) {
-        nubilo::registerAuthRoutes(router, db);
-        nubilo::registerFileRoutes(router, db, blobStore);
-        router.applyTo(server.getServer());
-        serverThread = std::thread([this]() { server.run(); });
-    }
-
-    ~FolderRoutesEnv() {
-        server.stop();
-        serverThread.join();
-        std::filesystem::remove(dbPath);
-        std::filesystem::remove_all(blobRoot);
-    }
-
-    std::string dbPath;
-    nubilo::Db db;
-    std::filesystem::path blobRoot;
-    nubilo::BlobStore blobStore;
-    nubilo::HttpServer server;
-    nubilo::Router router;
-    std::thread serverThread;
-};
-
-}
-
 TEST(FolderRoutesTest, CreateFolderReturnsCreatedAndCreatesParents) {
     constexpr int testPort = 8119;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -898,7 +894,7 @@ TEST(FolderRoutesTest, CreateFolderReturnsCreatedAndCreatesParents) {
 
 TEST(FolderRoutesTest, CreateFolderRejectsInvalidPath) {
     constexpr int testPort = 8120;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -914,7 +910,7 @@ TEST(FolderRoutesTest, CreateFolderRejectsInvalidPath) {
 
 TEST(FolderRoutesTest, CreateFolderRejectsMissingPathField) {
     constexpr int testPort = 8121;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -930,7 +926,7 @@ TEST(FolderRoutesTest, CreateFolderRejectsMissingPathField) {
 
 TEST(FolderRoutesTest, FolderRoutesRejectMissingToken) {
     constexpr int testPort = 8122;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -946,7 +942,7 @@ TEST(FolderRoutesTest, FolderRoutesRejectMissingToken) {
 
 TEST(FolderRoutesTest, ListRootShowsFoldersAndFiles) {
     constexpr int testPort = 8123;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -972,7 +968,7 @@ TEST(FolderRoutesTest, ListRootShowsFoldersAndFiles) {
 
 TEST(FolderRoutesTest, ListFolderByIdShowsItsDirectChildren) {
     constexpr int testPort = 8124;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1002,7 +998,7 @@ TEST(FolderRoutesTest, ListFolderByIdShowsItsDirectChildren) {
 
 TEST(FolderRoutesTest, ListFolderReturnsNotFoundForMissingOrForeignFolder) {
     constexpr int testPort = 8125;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1026,7 +1022,7 @@ TEST(FolderRoutesTest, ListFolderReturnsNotFoundForMissingOrForeignFolder) {
 
 TEST(FolderRoutesTest, DeleteRemovesFolderAndEverythingInsideIt) {
     constexpr int testPort = 8127;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1055,7 +1051,7 @@ TEST(FolderRoutesTest, DeleteRemovesFolderAndEverythingInsideIt) {
 
 TEST(FolderRoutesTest, DeleteRemovesEmptyFolder) {
     constexpr int testPort = 8126;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1077,7 +1073,7 @@ TEST(FolderRoutesTest, DeleteRemovesEmptyFolder) {
 
 TEST(FolderRoutesTest, DeleteRejectsMissingToken) {
     constexpr int testPort = 8128;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1090,7 +1086,7 @@ TEST(FolderRoutesTest, DeleteRejectsMissingToken) {
 
 TEST(FolderRoutesTest, DeleteReturnsNotFoundForMissingOrForeignFolder) {
     constexpr int testPort = 8129;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1114,7 +1110,7 @@ TEST(FolderRoutesTest, DeleteReturnsNotFoundForMissingOrForeignFolder) {
 
 TEST(FolderRoutesTest, CreateFolderReturnsConflictWhenFileHasThatPath) {
     constexpr int testPort = 8130;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1135,7 +1131,7 @@ TEST(FolderRoutesTest, CreateFolderReturnsConflictWhenFileHasThatPath) {
 
 TEST(FolderRoutesTest, UploadReturnsConflictWhenFolderHasThatPath) {
     constexpr int testPort = 8131;
-    FolderRoutesEnv env(testPort);
+    RoutesEnv env(testPort);
 
     httplib::Client client("localhost", testPort);
     client.set_connection_timeout(2);
@@ -1152,4 +1148,98 @@ TEST(FolderRoutesTest, UploadReturnsConflictWhenFolderHasThatPath) {
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 409);
     EXPECT_EQ(nlohmann::json::parse(result->body)["error"]["code"], "PATH_CONFLICT");
+}
+
+TEST(VersionRoutesTest, ListReturnsVersionsNewestFirst) {
+    constexpr int testPort = 8132;
+    RoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems firstItems = {{"file", "first", "notes.txt", "text/plain"}};
+    httplib::MultipartFormDataItems secondItems = {{"file", "second version", "notes.txt", "text/plain"}};
+    auto upload = client.Post("/files", headers, firstItems);
+    client.Post("/files", headers, secondItems);
+    ASSERT_TRUE(upload);
+    int64_t fileId = nlohmann::json::parse(upload->body)["id"].get<int64_t>();
+
+    auto result = client.Get("/files/" + std::to_string(fileId) + "/versions", headers);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->status, 200);
+    auto body = nlohmann::json::parse(result->body);
+    ASSERT_EQ(body.size(), 2);
+    EXPECT_EQ(body[0]["version"].get<int64_t>(), 2);
+    EXPECT_EQ(body[0]["size"].get<int64_t>(), 14);
+    EXPECT_EQ(body[0]["contentType"].get<std::string>(), "text/plain");
+    EXPECT_TRUE(body[0].contains("createdAt"));
+    EXPECT_EQ(body[1]["version"].get<int64_t>(), 1);
+    EXPECT_EQ(body[1]["size"].get<int64_t>(), 5);
+}
+
+TEST(VersionRoutesTest, ListShowsVersionCreatedByRestore) {
+    constexpr int testPort = 8133;
+    RoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems firstItems = {{"file", "first", "notes.txt", "text/plain"}};
+    httplib::MultipartFormDataItems secondItems = {{"file", "second", "notes.txt", "text/plain"}};
+    auto upload = client.Post("/files", headers, firstItems);
+    client.Post("/files", headers, secondItems);
+    ASSERT_TRUE(upload);
+    std::string base = "/files/" + std::to_string(nlohmann::json::parse(upload->body)["id"].get<int64_t>());
+    client.Post(base + "/versions/1/restore", headers, "", "text/plain");
+
+    auto result = client.Get(base + "/versions", headers);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->status, 200);
+    auto body = nlohmann::json::parse(result->body);
+    ASSERT_EQ(body.size(), 3);
+    EXPECT_EQ(body[0]["version"].get<int64_t>(), 3);
+}
+
+TEST(VersionRoutesTest, ListRejectsMissingToken) {
+    constexpr int testPort = 8134;
+    RoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+
+    auto result = client.Get("/files/1/versions");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 401);
+}
+
+TEST(VersionRoutesTest, ListReturnsNotFoundForMissingOrForeignFile) {
+    constexpr int testPort = 8135;
+    RoutesEnv env(testPort);
+
+    httplib::Client client("localhost", testPort);
+    client.set_connection_timeout(2);
+    std::string otherToken = registerAndLoginAs(client, "other@example.com");
+    httplib::Headers otherHeaders = {{"Authorization", "Bearer " + otherToken}};
+    httplib::MultipartFormDataItems items = {{"file", "secret", "private.txt", "text/plain"}};
+    auto upload = client.Post("/files", otherHeaders, items);
+    ASSERT_TRUE(upload);
+    int64_t foreignId = nlohmann::json::parse(upload->body)["id"].get<int64_t>();
+
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    auto foreign = client.Get("/files/" + std::to_string(foreignId) + "/versions", headers);
+    auto missing = client.Get("/files/9999/versions", headers);
+
+    ASSERT_TRUE(foreign);
+    ASSERT_TRUE(missing);
+    EXPECT_EQ(foreign->status, 404);
+    EXPECT_EQ(missing->status, 404);
 }

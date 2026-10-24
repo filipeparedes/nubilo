@@ -372,6 +372,26 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
     return nextVersion;
 }
 
+std::expected<std::vector<VersionInfo>, BlobError> listVersions(Db& db, int64_t fileId) {
+    auto queryRes = db.query(
+        "SELECT version, size, content_type, created_at "
+        "FROM file_versions WHERE file_id = ? ORDER BY version DESC;",
+        {std::to_string(fileId)});
+    if (!queryRes)
+        return std::unexpected(BlobError{queryRes.error().msg});
+
+    std::vector<VersionInfo> versions;
+    for (const auto& row : queryRes.value()) {
+        versions.push_back(VersionInfo{
+            row["version"].get<int64_t>(),
+            row["size"].get<int64_t>(),
+            row["content_type"].is_null() ? "" : row["content_type"].get<std::string>(),
+            row["created_at"].get<std::string>()});
+    }
+
+    return versions;
+}
+
 std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path) {
     auto lock = db.lock();
     auto tx = DbTransaction::begin(db);

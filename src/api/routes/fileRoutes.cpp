@@ -204,6 +204,41 @@ static void handleFileRollback(Db& db, const httplib::Request& req, httplib::Res
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleVersionList(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t fileId = std::stoll(req.matches[1]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
+        return;
+    }
+
+    auto listRes = listVersions(db, fileId);
+    if (!listRes) {
+        writeErrorResponse(res, 500, "LIST_FAILED", "Could not list versions.");
+        return;
+    }
+
+    nlohmann::json responseBody = nlohmann::json::array();
+    for (const auto& version : listRes.value()) {
+        responseBody.push_back({
+            {"version", version.version},
+            {"size", version.size},
+            {"contentType", version.contentType},
+            {"createdAt", version.createdAt}});
+    }
+
+    res.status = 200;
+    res.set_content(responseBody.dump(), "application/json");
+}
+
 // ------------------- FOLDERS ---------------
 
 static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
@@ -329,6 +364,9 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     }));
     router.addRoute("DELETE", R"(/folders/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderDelete(db, req, res, token);
+    }));
+    router.addRoute("GET", R"(/files/([0-9]+)/versions)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleVersionList(db, req, res, token);
     }));
 }
 
