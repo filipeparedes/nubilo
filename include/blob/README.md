@@ -11,6 +11,7 @@ the ordered list of chunks that make up each version of a file. Identical chunks
 | `BlobStore.h` / `BlobStore.cpp` | Content-addressed storage on disk. Hashes content, writes it, reads it back by hash. |
 | `chunker.h` / `chunker.cpp` | `chunkContent`: splits content into chunks of at most a given size. |
 | `BlobError.h` | Error type returned by every call in this module (`BlobError{message}`). |
+| `path.h` / `path.cpp` | `validatePath`: checks that a file or folder path is acceptable. `parentPaths`: lists the folders that contain a path. |
 
 ## How it works
 

@@ -82,6 +82,7 @@ add_executable(nubilo
         src/api/routes/fileRoutes.cpp
         src/blob/chunker.cpp
         src/concurrency/ThreadPool.cpp
+        src/blob/path.cpp
 )
 
 target_include_directories(nubilo PRIVATE include ${picosha2_SOURCE_DIR})

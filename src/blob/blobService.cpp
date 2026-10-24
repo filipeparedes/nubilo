@@ -1,6 +1,7 @@
 #include "blob/blobService.h"
 
 #include "blob/chunker.h"
+#include "blob/path.h"
 #include "concurrency/ThreadPool.h"
 #include "storage/DbTransaction.h"
 
@@ -8,7 +9,62 @@
 
 namespace nubilo {
 
+namespace {
+
 constexpr size_t DEFAULT_CHUNK_SIZE = 1024 * 1024 * 4;
+
+
+// true if the owner has a file at exactly this path
+std::expected<bool, BlobError> fileExistsAt(Db& db, int64_t ownerId, const std::string& path) {
+    auto res = db.query(
+        "SELECT id FROM files WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), path});
+    if (!res)
+        return std::unexpected(BlobError{res.error().msg});
+
+    return !res.value().empty();
+}
+
+// true if the owner has a folder at exactly this path
+std::expected<bool, BlobError> folderExistsAt(Db& db, int64_t ownerId, const std::string& path) {
+    auto res = db.query(
+        "SELECT id FROM folders WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), path});
+    if (!res)
+        return std::unexpected(BlobError{res.error().msg});
+
+    return !res.value().empty();
+}
+
+// inserts one folder row, does nothing if it already exists, fails with Conflict if a file has that path
+std::expected<void, BlobError> insertFolder(Db& db, int64_t ownerId, const std::string& path) {
+    auto fileRes = fileExistsAt(db, ownerId, path);
+    if (!fileRes)
+        return std::unexpected(fileRes.error());
+    if (fileRes.value())
+        return std::unexpected(BlobError{"A file already exists at '" + path + "'.", BlobErrorType::Conflict});
+
+    auto res = db.exec(
+        "INSERT OR IGNORE INTO folders (owner_id, path) VALUES (?, ?);",
+        {std::to_string(ownerId), path});
+    if (!res)
+        return std::unexpected(BlobError{res.error().msg});
+
+    return {};
+}
+
+// makes sure every parent folder of a path exists: "a/b/c.txt" creates "a" and "a/b"
+std::expected<void, BlobError> ensureParentFolders(Db& db, int64_t ownerId, std::string_view path) {
+    for (const auto& parent : parentPaths(path)) {
+        auto res = insertFolder(db, ownerId, parent);
+        if (!res)
+            return res;
+    }
+
+    return {};
+}
+
+}
 
 std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_t ownerId, const File& file, ThreadPool* pool) {
     auto chunks = chunkContent(file.content, DEFAULT_CHUNK_SIZE);
@@ -61,7 +117,7 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
             return std::unexpected(results[i].error());
         storeRes.emplace_back(results[i].value(), chunkList[i].size());
     }
-    
+
     auto lock = db.lock();
     auto tx = DbTransaction::begin(db);
     if (!tx)
@@ -76,6 +132,10 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
             return std::unexpected(BlobError{blobRes.error().msg});
     }
 
+    auto foldersRes = ensureParentFolders(db, ownerId, file.path);
+    if (!foldersRes)
+        return std::unexpected(foldersRes.error());
+
     // find the file for this owner and path, or create it
     auto findRes = db.query(
         "SELECT id FROM files WHERE owner_id = ? AND path = ?;",
@@ -85,6 +145,13 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
 
     int64_t fId;
     if (findRes.value().empty()) {
+        //a folder at this path would clash with the new file
+        auto folderRes = folderExistsAt(db, ownerId, file.path);
+        if (!folderRes)
+            return std::unexpected(folderRes.error());
+        if (folderRes.value())
+            return std::unexpected(BlobError{"A folder already exists at '" + file.path + "'.", BlobErrorType::Conflict});
+
         auto fileRes = db.exec(
             "INSERT INTO files (owner_id, path) VALUES (?, ?);",
             {std::to_string(ownerId), file.path});
@@ -304,5 +371,150 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
 
     return nextVersion;
 }
+
+std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path) {
+    auto lock = db.lock();
+    auto tx = DbTransaction::begin(db);
+    if (!tx)
+        return std::unexpected(BlobError{tx.error().msg});
+
+    auto parentsRes = ensureParentFolders(db, ownerId, path);
+    if (!parentsRes)
+        return std::unexpected(parentsRes.error());
+
+    auto folderRes = insertFolder(db, ownerId, path);
+    if (!folderRes)
+        return std::unexpected(folderRes.error());
+
+    // lastInsertId does not work when the folder already existed, so the id is always looked up
+    auto findRes = db.query(
+        "SELECT id FROM folders WHERE owner_id = ? AND path = ?;",
+        {std::to_string(ownerId), path});
+    if (!findRes)
+        return std::unexpected(BlobError{findRes.error().msg});
+
+    int64_t folderId = findRes.value().at(0).at("id").get<int64_t>();
+
+    auto commitRes = tx->commit();
+    if (!commitRes)
+        return std::unexpected(BlobError{commitRes.error().msg});
+
+    return folderId;
+}
+
+std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, const std::string& path) {
+    // direct children start with "<path>/" and have no further slash after it
+    const std::string prefix = path.empty() ? "" : path + "/";
+    const std::string owner = std::to_string(ownerId);
+
+    auto lock = db.lock();
+
+    auto foldersRes = db.query(
+        "SELECT id, path, created_at FROM folders "
+        "WHERE owner_id = ? "
+        "AND substr(path, 1, length(?)) = ? "
+        "AND instr(substr(path, length(?) + 1), '/') = 0 "
+        "ORDER BY path;",
+        {owner, prefix, prefix, prefix});
+    if (!foldersRes)
+        return std::unexpected(BlobError{foldersRes.error().msg});
+
+    auto filesRes = db.query(
+        "SELECT files.id, files.path, file_versions.size, file_versions.content_type, "
+        "files.created_at, files.updated_at "
+        "FROM files JOIN file_versions ON file_versions.file_id = files.id "
+        "WHERE files.owner_id = ? "
+        "AND substr(files.path, 1, length(?)) = ? "
+        "AND instr(substr(files.path, length(?) + 1), '/') = 0 "
+        "AND file_versions.version = "
+        "(SELECT MAX(version) FROM file_versions WHERE file_id = files.id) "
+        "ORDER BY files.path;",
+        {owner, prefix, prefix, prefix});
+    if (!filesRes)
+        return std::unexpected(BlobError{filesRes.error().msg});
+
+    FolderContents contents;
+    for (const auto& row : foldersRes.value()) {
+        contents.folders.push_back(FolderInfo{
+            row["id"].get<int64_t>(),
+            row["path"].get<std::string>(),
+            row["created_at"].get<std::string>()});
+    }
+
+    for (const auto& row : filesRes.value()) {
+        contents.files.push_back(FileInfo{
+            row["id"].get<int64_t>(),
+            row["path"].get<std::string>(),
+            row["size"].get<int64_t>(),
+            row["content_type"].is_null() ? "" : row["content_type"].get<std::string>(),
+            row["created_at"].get<std::string>(),
+            row["updated_at"].get<std::string>()});
+    }
+
+    return contents;
+}
+
+std::expected<void, BlobError> deleteFolder(Db& db, int64_t folderId) {
+    auto lock = db.lock();
+    auto tx = DbTransaction::begin(db);
+    if (!tx)
+        return std::unexpected(BlobError{tx.error().msg});
+
+    auto folderRes = db.query("SELECT owner_id, path FROM folders WHERE id = ?;", {std::to_string(folderId)});
+    if (!folderRes)
+        return std::unexpected(BlobError{folderRes.error().msg});
+    if (folderRes.value().empty())
+        return std::unexpected(BlobError{"Folder not found."});
+
+    std::string ownerId = std::to_string(folderRes.value()[0]["owner_id"].get<int64_t>());
+    //everything inside the folder, at any depth, starts with this prefix
+    //the trailing slash stops "docs" from matching "docs2/..."
+    std::string prefix = folderRes.value()[0]["path"].get<std::string>() + "/";
+
+    //chunk manifests of every version of every file inside
+    auto chunksRes = db.exec(
+        "DELETE FROM file_chunks WHERE version_id IN ("
+        "  SELECT v.id FROM file_versions v JOIN files f ON f.id = v.file_id"
+        "  WHERE f.owner_id = ? AND substr(f.path, 1, length(?)) = ?);",
+        {ownerId, prefix, prefix});
+    if (!chunksRes)
+        return std::unexpected(BlobError{chunksRes.error().msg});
+
+    //the versions themselves
+    auto versionsRes = db.exec(
+        "DELETE FROM file_versions WHERE file_id IN ("
+        "  SELECT id FROM files WHERE owner_id = ? AND substr(path, 1, length(?)) = ?);",
+        {ownerId, prefix, prefix});
+    if (!versionsRes)
+        return std::unexpected(BlobError{versionsRes.error().msg});
+
+    //the files
+    auto filesRes = db.exec(
+        "DELETE FROM files WHERE owner_id = ? AND substr(path, 1, length(?)) = ?;",
+        {ownerId, prefix, prefix});
+    if (!filesRes)
+        return std::unexpected(BlobError{filesRes.error().msg});
+
+    //the subfolders, at any depth
+    auto subfoldersRes = db.exec(
+        "DELETE FROM folders WHERE owner_id = ? AND substr(path, 1, length(?)) = ?;",
+        {ownerId, prefix, prefix});
+    if (!subfoldersRes)
+        return std::unexpected(BlobError{subfoldersRes.error().msg});
+
+    //the folder itself
+    auto folderDelRes = db.exec("DELETE FROM folders WHERE id = ?;", {std::to_string(folderId)});
+    if (!folderDelRes)
+        return std::unexpected(BlobError{folderDelRes.error().msg});
+
+    auto commitRes = tx->commit();
+    if (!commitRes)
+        return std::unexpected(BlobError{commitRes.error().msg});
+
+    //TODO: Handle actual blob deletion (same as deleteFile: only orphan blobs may be removed)
+
+    return {};
+}
+
 
 }

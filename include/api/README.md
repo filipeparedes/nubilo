@@ -36,13 +36,18 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `POST /auth/register` | no | JSON `email`, `password` | 201 `{"id": <userId>}` | 400 invalid body or email, 409 email already registered, 500 |
 | `POST /auth/login` | no | JSON `email`, `password` | 200 `{"token": "<token>"}` | 400 invalid body, 401 invalid credentials |
 | `POST /auth/logout` | yes | | 200 | 401, 500 |
-| `POST /files` | yes | multipart field `file`, optional `path` (defaults to the file name). Uploading to a path that already exists adds a new version of that file | 201 `{"id": <fileId>}` | 400 missing file or path, 401, 500 |
+| `POST /files` | yes | multipart field `file`, optional `path` (defaults to the file name). Uploading to a path that already exists adds a new version of that file | 201 `{"id": <fileId>}` | 400 missing file or invalid path (see below), 401, 500 |
 | `POST /files/{id}/versions/{version}/restore` | yes | | 201 `{"id": <fileId>, "version": <newVersion>}` | 401, 404 file or version not found, 500 |
 | `GET /files` | yes | | 200 array of `{id, path, size, contentType, createdAt, updatedAt}` | 401, 500 |
 | `GET /files/{id}` | yes | | 200 file content, with `Content-Disposition: attachment` | 401, 404, 500 |
 | `DELETE /files/{id}` | yes | | 204 | 401, 404, 500 |
+| `POST /folders` | yes | JSON `path`. Parent folders that do not exist are created too, and creating a folder that already exists returns its id | 201 `{"id": <folderId>}` | 400 invalid body or path, 401, 500 |
+| `GET /folders` | yes | | 200 `{"folders": [{id, path, createdAt}], "files": [{id, path, size, contentType, createdAt, updatedAt}]}`: the subfolders and files at the root | 401, 500 |
+| `GET /folders/{id}` | yes | | 200 same shape, with the direct subfolders and files of that folder | 401, 404, 500 |
 
 ## Notes
 
 * A file is held in memory in full while it is uploaded and when it is downloaded.
 * Routes capture `Db` and `BlobStore` by reference, so both must outlive the server.
+* * A path is made of segments separated by single slashes, for example `docs/2026/notes.txt`. It is rejected with 400 `INVALID_PATH` if it is empty, starts or ends with a slash, 
+contains a backslash, an empty segment, a `.` or `..` segment or a control character, or is longer than 1024 bytes.

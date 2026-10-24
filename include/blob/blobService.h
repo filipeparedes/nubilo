@@ -35,7 +35,29 @@ struct FileInfo {
     std::string updatedAt;
 };
 
+/**
+ * @struct FolderInfo
+ * @brief A folder's metadata.
+ */
+struct FolderInfo {
+    int64_t id;
+    std::string path;
+    std::string createdAt;
+};
+
+/**
+ * @struct FolderContents
+ * @brief What a folder holds directly: its subfolders and its files.
+ * Files are described by their latest version, like in listFiles.
+ */
+struct FolderContents {
+    std::vector<FolderInfo> folders;
+    std::vector<FileInfo> files;
+};
+
 // -------------- FUNCTIONS -------------
+
+// --------------- FILES ---------------
 
 /**
  * @brief Stores content for a given owner as a new version of the file at that path. If the owner has no
@@ -97,4 +119,43 @@ std::expected<void, BlobError> deleteFile(Db& db, int64_t fileId);
  * @return The number of the new version on success, or a BlobError on failure (including when the filre or version does not exist.
  */
 std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t version);
+
+// ----------------- FOLDERS ----------------
+
+/**
+ * @brief Creates a folder for the given owner, together with any of its parent folders that do not
+ * exist yet. Creating a folder that already exists does nothing and returns its id.
+ *
+ * The folder and its parents are created in a single transaction.
+ * @param db The database to record the folder in.
+ * @param ownerId The id of the user who owns this folder.
+ * @param path The path of the folder, already validated (see validatePath).
+ * @return The folder's id on success, or a BlobError on failure.
+ */
+std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path);
+
+/**
+ * @brief Lists what a folder holds directly: its subfolders and its files, ordered by path.
+ *
+ * Only the direct children are returned, not what is inside the subfolders. The root of the
+ * owner's files is listed with an empty path.
+ * @param db The database holding the folders and files.
+ * @param ownerId The id of the user who owns the folder.
+ * @param path The path of the folder, or an empty string for the root.
+ * @return The folder's contents on success, or a BlobError on failure.
+ */
+std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, const std::string& path);
+
+/**
+ * @brief Deletes a folder together with everything inside it: its subfolders, its files and all the
+ * versions and chunk manifests of those files.
+ *
+ * Like deleteFile, it keeps the chunks themselves (rows in blobs and files on disk), since other files
+ * may reference them. Orphaned chunks are left for a future garbage collection. The parent folders are
+ * kept.
+ * @param db The database where the folder is recorded.
+ * @param folderId The id of the folder to delete.
+ * @return Nothing on success, or a BlobError on failure.
+ */
+std::expected<void, BlobError> deleteFolder(Db& db, int64_t folderId);
 }
