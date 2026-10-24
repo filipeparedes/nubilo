@@ -108,39 +108,41 @@ to adjust scope during implementation.
 - Version diffing (store only changed chunks per version)
 - Rollback mechanism (restore a previous version)
 
-## v0.6 (Sprint 6) (nubilo + nubilo-client) (~68h)
+## v0.6 (Sprint 6) (nubilo + nubilo-web) (~68h)
 - Folder support (hierarchical paths, folder listing and operations), done first because it changes the API contract
 - CI pipeline (build and tests on every push and pull request)
-- Versioning completion: version listing endpoint, version comparison
-- Groundwork for conflict detection
-- API client for server communication
-- Diff computation between local and remote state
-- Change detection loop
-- Local file-state cache
+- Versioning completion: version listing endpoint
+- CORS support, so the browser frontend can call the API
+- Frontend project setup (Vite + React + TS, in `nubilo-web`)
 
 ## v0.7 (Sprint 7) (nubilo-web + nubilo) (~67h)
-- Frontend project setup (Vite + React + TS, in `nubilo-web`)
+- Frontend: API integration layer (auth, fetching files)
 - Frontend: file browser / navigation UI
 - Frontend: upload/download UI
-- Frontend: file history view
-- Frontend: API integration layer (auth, fetching files)
+- Frontend: file history view, with version comparison if the view needs it
 - End-to-end integration testing pass
-- Orphan blob garbage collection
 
 ## v1.0 (Sprint 8) (nubilo + nubilo-web) (~40h)
+- Configuration through environment variables (port, database path, blob directory), first
 - Deployment of the server and the frontend
 - Deployment guide
 - OpenAPI specification of the API
+- Orphan blob garbage collection
 - Benchmarks (deduplication and version savings, upload time with and without the thread pool)
-- Final polish and fixes
 - Documentation consolidation (final report, etc..)
+- Final polish and fixes
+- Automated deployment with GitHub Actions, last (moves to a future release if there is no time)
 
 ## Extras (if there is extra time available)
 - Real-time notifications (mechanism TBD: websockets vs polling) 
 - File sharing between users (permissions model, share endpoint)
+- File/folder moving & renaming
 
 ## Unplanned future releases
 - Multi-server replication and high availability
 - Email verification (send confirmation link/code)
 - Centralized logging to daily rotated files
 - CLI interface for Nubilo
+- `nubilo-client`: the sync client (API client, diff computation, change detection loop, local file-state cache) and the CLI
+- Conflict detection for uploads based on an older version
+- Trash for deleted files and folders, with a retention period
