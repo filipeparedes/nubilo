@@ -16,11 +16,11 @@ The hours in the development phases also account for any research/learning that 
 | 3 | File Endpoints & Storage | Upload, download, list, and delete endpoints; whole-file SHA-256 hashing; content-addressed storage on disk. Lives in nubilo. | ~60h 
 | 4 | File Chunking, Hashing & Deduplication | Splitting files into blocks, block-level hashing, and deduplication. The technical core of the project. | ~90h 
 | 5 | File Versioning | Tracking previous versions of a file, enabling rollback/history. | ~50h 
-| 6 | nubilo-client (Sync Client) | Folder support in the API (done first, since it changes the API contract), version listing and comparison, local file-state cache, change detection, diffing and conflict groundwork. Lives in nubilo and nubilo-client, a separate local executable. | ~70h 
-| 7 | nubilo-web | Hosted frontend (nubilo-web), end-to-end testing and documentation consolidation. | ~50h 
-| 8 | Polish & Delivery | Deployment and deployment guide, OpenAPI specification, orphan blob garbage collection and benchmarks. Real-time notifications and file sharing remain optional extras. | ~40h
+| 6 | Folders, CI & Versioning Completion | Folder support in the API, the CI pipeline, the version listing endpoint and CORS, plus the start of nubilo-web. Lives in nubilo and nubilo-web. | ~60h 
+| 7 | nubilo-web | Hosted frontend (nubilo-web) and end-to-end testing. | ~50h 
+| 8 | Configuration, Polish & Delivery | Configuration through environment variables, deployment and deployment guide, OpenAPI specification, orphan blob garbage collection, benchmarks, documentation consolidation and automated deployment. Real-time notifications and file sharing remain optional extras. | ~40h
 
-**Subtotal:** ~460h
+**Subtotal:** ~450h
 
 ## Cross-cutting activities
 
@@ -31,7 +31,7 @@ The hours in the development phases also account for any research/learning that 
 
 **Subtotal:** ~70h
 
-## Total: ~530h
+## Total: ~520h
 
 ## Notes on sequencing decisions
 
@@ -44,14 +44,18 @@ The hours in the development phases also account for any research/learning that 
   hashing work. Phase 3 uses a simple whole-file SHA-256 hash as a
   placeholder for this, which Phase 4 then replaces/extends with proper
   block-level chunking, hashing, and deduplication.
-- **Folders before the client:** folder support changes the API contract (paths, listing, operations on folders), 
-so it is done in Sprint 6 before the sync client is built on top of it, instead of changing the contract afterwards.
+- **Folders before the frontend:** folder support changes the API contract (paths, listing, operations on folders),
+  so it is done first in Sprint 6, before the frontend is built on top of it, instead of changing the contract afterwards.
+- **Frontend before the client:** the sync client needs the sync state (file-state cache, change detection, conflict handling),
+  which was barely started. The project prefers a tangible result, so `nubilo-web` comes right after the backend and
+  `nubilo-client` moves to after v1.0. It remains the long-term priority for how a user interacts with their files, through its CLI.
 - **CI pipeline early:** the pipeline (build and tests on every push and pull request) starts in Sprint 6, so that the
 rest of the project, including the client and the frontend, is built with automatic checks.
-- **Phase 8:** a final phase dedicated to polish and delivery: deploying the system, documenting how to deploy it, 
-specifying the API with OpenAPI, cleaning up orphan blobs and measuring the system (deduplication savings, version savings 
-and upload time with and without the thread pool). Real-time notifications and file sharing were taken out of Phase 7 so 
-the frontend stays focused, and remain optional extras.
+- **Phase 8:** a final phase dedicated to configuration, polish and delivery. Configuration through environment variables
+  comes first, since deployment depends on it. Then the deployment of the system, the deployment guide, the OpenAPI specification,
+  the cleaning of orphan blobs and the measurements (deduplication savings, version savings and upload time with and without the thread pool).
+  Automated deployment with GitHub Actions is the last item and moves to a future release if time runs out.
+  Real-time notifications and file sharing remain optional extras.
 
 ---
 
