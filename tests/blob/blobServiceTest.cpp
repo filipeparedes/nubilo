@@ -41,6 +41,47 @@ nubilo::Db makeMigratedDb(const std::string& path) {
     return db;
 }
 
+class ListFolderTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        dbPath_ = tempDbPath();
+        db_ = std::make_unique<nubilo::Db>(makeMigratedDb(dbPath_));
+
+        blobRoot_ = tempBlobRoot();
+        auto store = nubilo::BlobStore::open(blobRoot_);
+        ASSERT_TRUE(store.has_value());
+        blobStore_ = std::make_unique<nubilo::BlobStore>(std::move(*store));
+    }
+
+    void TearDown() override {
+        db_.reset();
+        std::filesystem::remove(dbPath_);
+        std::filesystem::remove_all(blobRoot_);
+    }
+
+    // stores a small text file, so the tests can build a folder tree quickly
+    void storeText(int64_t ownerId, const std::string& path, const std::string& content = "x") {
+        nubilo::File file{path, content, "text/plain"};
+        ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, ownerId, file).has_value());
+    }
+
+    static std::vector<std::string> paths(const nubilo::FolderContents& contents) {
+        std::vector<std::string> result;
+        for (const auto& folder : contents.folders)
+            result.push_back("folder:" + folder.path);
+        for (const auto& file : contents.files)
+            result.push_back("file:" + file.path);
+        return result;
+    }
+
+    std::string dbPath_;
+    std::filesystem::path blobRoot_;
+    std::unique_ptr<nubilo::Db> db_;
+    std::unique_ptr<nubilo::BlobStore> blobStore_;
+};
+
+class ListVersionsTest : public ListFolderTest {};
+
 }
 
 TEST(BlobServiceTest, StoreFileSucceedsWithNewContent) {
@@ -1077,45 +1118,6 @@ TEST(BlobServiceTest, StoreFileWithSharedPoolHandlesConcurrentUploads) {
     std::filesystem::remove_all(blobRootPath);
 }
 
-class ListFolderTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        dbPath_ = tempDbPath();
-        db_ = std::make_unique<nubilo::Db>(makeMigratedDb(dbPath_));
-
-        blobRoot_ = tempBlobRoot();
-        auto store = nubilo::BlobStore::open(blobRoot_);
-        ASSERT_TRUE(store.has_value());
-        blobStore_ = std::make_unique<nubilo::BlobStore>(std::move(*store));
-    }
-
-    void TearDown() override {
-        db_.reset();
-        std::filesystem::remove(dbPath_);
-        std::filesystem::remove_all(blobRoot_);
-    }
-
-    // stores a small text file, so the tests can build a folder tree quickly
-    void storeText(int64_t ownerId, const std::string& path, const std::string& content = "x") {
-        nubilo::File file{path, content, "text/plain"};
-        ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, ownerId, file).has_value());
-    }
-
-    static std::vector<std::string> paths(const nubilo::FolderContents& contents) {
-        std::vector<std::string> result;
-        for (const auto& folder : contents.folders)
-            result.push_back("folder:" + folder.path);
-        for (const auto& file : contents.files)
-            result.push_back("file:" + file.path);
-        return result;
-    }
-
-    std::string dbPath_;
-    std::filesystem::path blobRoot_;
-    std::unique_ptr<nubilo::Db> db_;
-    std::unique_ptr<nubilo::BlobStore> blobStore_;
-};
-
 TEST_F(ListFolderTest, RootListsTopLevelFoldersAndFiles) {
     storeText(1, "notes.txt");
     storeText(1, "docs/a.txt");
@@ -1332,4 +1334,62 @@ TEST_F(ListFolderTest, SamePathForDifferentOwnersDoesNotConflict) {
     storeText(1, "docs");
 
     EXPECT_TRUE(nubilo::createFolder(*db_, 2, "docs").has_value());
+}
+
+TEST_F(ListVersionsTest, ListsVersionsNewestFirst) {
+    nubilo::File first{"notes.txt", "a", "text/plain"};
+    nubilo::File second{"notes.txt", "ab", "text/plain"};
+    nubilo::File third{"notes.txt", "abc", "text/plain"};
+    auto fileId = nubilo::storeFile(*db_, *blobStore_, 1, first);
+    ASSERT_TRUE(fileId.has_value());
+    ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, 1, second).has_value());
+    ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, 1, third).has_value());
+
+    auto result = nubilo::listVersions(*db_, *fileId);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 3);
+    EXPECT_EQ((*result)[0].version, 3);
+    EXPECT_EQ((*result)[1].version, 2);
+    EXPECT_EQ((*result)[2].version, 1);
+}
+
+TEST_F(ListVersionsTest, EachVersionHasItsOwnSizeAndContentType) {
+    nubilo::File first{"data", "ab", "text/plain"};
+    nubilo::File second{"data", "abcd", "application/json"};
+    auto fileId = nubilo::storeFile(*db_, *blobStore_, 1, first);
+    ASSERT_TRUE(fileId.has_value());
+    ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, 1, second).has_value());
+
+    auto result = nubilo::listVersions(*db_, *fileId);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 2);
+    EXPECT_EQ((*result)[0].size, 4);
+    EXPECT_EQ((*result)[0].contentType, "application/json");
+    EXPECT_EQ((*result)[1].size, 2);
+    EXPECT_EQ((*result)[1].contentType, "text/plain");
+}
+
+TEST_F(ListVersionsTest, IncludesVersionCreatedByRollback) {
+    nubilo::File first{"notes.txt", "first", "text/plain"};
+    nubilo::File second{"notes.txt", "second", "text/plain"};
+    auto fileId = nubilo::storeFile(*db_, *blobStore_, 1, first);
+    ASSERT_TRUE(fileId.has_value());
+    ASSERT_TRUE(nubilo::storeFile(*db_, *blobStore_, 1, second).has_value());
+    ASSERT_TRUE(nubilo::rollbackFile(*db_, *fileId, 1).has_value());
+
+    auto result = nubilo::listVersions(*db_, *fileId);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 3);
+    EXPECT_EQ((*result)[0].version, 3);
+    EXPECT_EQ((*result)[0].size, 5);
+}
+
+TEST_F(ListVersionsTest, ReturnsEmptyListForUnknownFile) {
+    auto result = nubilo::listVersions(*db_, 999);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
 }
