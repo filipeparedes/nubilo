@@ -6,6 +6,7 @@
 #include <expected>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace nubilo {
 
@@ -44,6 +45,30 @@ struct VersionInfo {
     int64_t size;
     std::string contentType;
     std::string createdAt;
+};
+
+/**
+ * @struct ChunkChange
+ * @brief A chunk position where two versions of a file differ.
+ * A missing hash means that version has no chunk at that position (it is shorter).
+ */
+struct ChunkChange {
+    int64_t position;
+    std::optional<std::string> fromHash;
+    std::optional<std::string> toHash;
+};
+
+/**
+ * @struct VersionComparison
+ * @brief The result of comparing two versions of a file, chunk by chunk.
+ */
+struct VersionComparison {
+    int64_t fromSize;
+    int64_t toSize;
+    int64_t fromChunks;
+    int64_t toChunks;
+    int64_t unchangedChunks;
+    std::vector<ChunkChange> changes;
 };
 
 /**
