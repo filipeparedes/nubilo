@@ -46,6 +46,7 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `GET /folders/{id}` | yes | | 200 same shape, with the direct subfolders and files of that folder | 401, 404, 500 |
 | `GET /files/{id}/versions` | yes | | 200 array of `{version, size, contentType, createdAt}`, newest first. The first one is the current version | 401, 404, 500 |
 | `GET /files/{id}/versions/compare?from=N&to=M` | yes | query parameters `from` and `to`, version numbers | 200 `{fromVersion, toVersion, fromSize, toSize, fromChunks, toChunks, unchangedChunks, changes: [{position, from, to}]}`. `from` and `to` in a change are chunk hashes, or `null` if that version has no chunk at the position | 400 missing or invalid parameters, 401, 404 file or version not found, 500 |
+| `GET /files/{id}/versions/{version}` | yes | | 200 content of that version, with `Content-Disposition: attachment` and the content type it had | 401, 404 file or version not found, 500 |
 
 ## Notes
 

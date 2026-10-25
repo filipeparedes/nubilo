@@ -17,13 +17,13 @@ A personal file synchronization system, built from scratch in C++. This reposito
 | File chunking and deduplication across files and users | Done |
 | File versioning with rollback | Done |
 | Concurrent chunk storage with a thread pool | Done |
-| Folder support | Planned |
-| Version listing and comparison | Planned |
-| Conflict handling | Planned |
-| `nubilo-client`: local sync client and CLI | Planned |
+| Folder support | Done |
+| Version listing and comparison | Done |
+| Conflict handling | Postponed |
+| `nubilo-client`: local sync client and CLI | Postponed |
 | `nubilo-web`: web frontend | Planned |
 | Deployment, OpenAPI specification, orphan blob cleanup, benchmarks | Planned |
-| Real-time notifications and file sharing between users | Stretch goals |
+| Real-time notifications and file sharing between users | Postponed |
 
 See the [Roadmap](docs/roadmap.md) for the plan, sprint by sprint.
 
@@ -99,6 +99,9 @@ curl -X POST localhost:8080/files -H "Authorization: Bearer $TOKEN" \
 curl localhost:8080/files -H "Authorization: Bearer $TOKEN"
 curl localhost:8080/files/1 -H "Authorization: Bearer $TOKEN" -o notes.txt
 curl -X POST localhost:8080/files/1/versions/1/restore -H "Authorization: Bearer $TOKEN"
+
+# download version 1 of the file, without restoring it
+curl localhost:8080/files/1/versions/1 -H "Authorization: Bearer $TOKEN" -o notes-v1.txt
 ```
 
 All endpoints are listed in [`include/api/README.md`](include/api/README.md).

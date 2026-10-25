@@ -30,7 +30,7 @@ version are added to `file_chunks` with their position.
 so the manifest keeps the right positions. `storeFile` always waits for every task to finish before returning, even if one fails, because the tasks read the file content. Without a pool, or for a file with a single chunk, 
 the chunks are written one after another on the calling thread.
 
-**Reading a file.** `readFile` finds the latest version of the file, reads its chunks from `file_chunks` in order, reads each one from the `BlobStore` and joins them.
+**Reading a file.** `readFile` finds a version of the file (the latest one unless a version number is given), reads its chunks from `file_chunks` in order, reads each one from the `BlobStore` and joins them.
 
 **Versions.** A file is identified by its owner and path. Uploading to a path that already exists does not create a new file, it adds a new version to it: the file keeps its id and 
 the version number goes up by one. Each version has its own size, content type and chunk list. The current version is the one with the highest number, and reads and listings always 
