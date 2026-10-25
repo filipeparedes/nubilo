@@ -24,6 +24,12 @@
 * SQLite. *Foreign Key Support*. https://www.sqlite.org/foreignkeys.html
 * cppreference.com. *C++ reference*. https://en.cppreference.com
 
+## Continuous integration
+
+* Red Hat. *What is a CI/CD pipeline?*. https://www.redhat.com/en/topics/devops/what-cicd-pipeline
+* GitHub. *Continuous integration*. GitHub Docs. https://docs.github.com/en/actions/get-started/continuous-integration
+* GitHub. *Understanding GitHub Actions*. GitHub Docs. https://docs.github.com/pt/actions/get-started/understand-github-actions
+
 ## Techniques and algorithms
 
 * Wikipedia. *Data deduplication*. https://en.wikipedia.org/wiki/Data_deduplication
@@ -40,3 +46,8 @@
 * Wikipedia. *Thread pool*. https://en.wikipedia.org/wiki/Thread_pool
 * GeeksforGeeks. *Thread Pool in C++*. https://www.geeksforgeeks.org/cpp/thread-pool-in-cpp/
 * C. Weaver. *Building a Thread Pool*. https://www.christopher-weaver.com/engineering/building-a-thread-pool/
+* *Design Dropbox or Google Drive*. System Design Tutorial. https://systemdesigntutorial.substack.com/p/design-dropbox-google-drive
+* *Design a file storage service like Google Drive*. Educative. https://www.educative.io/blog/google-drive-system-design
+* *From Trees to Tables: Storing Hierarchical Data in Relational Databases*. Medium. https://medium.com/@rishabhdevmanu/from-trees-to-tables-storing-hierarchical-data-in-relational-databases-a5e5e6e1bd64
+* *Comparing two files in C++*. Stack Overflow. https://stackoverflow.com/questions/9464712/comparing-two-files-in-c
+* *C++ File Comparison*. CodeGuru Forums. https://forums.codeguru.com/showthread.php?482418-C-File-Comparison
