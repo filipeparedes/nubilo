@@ -28,7 +28,7 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14
 
       - name: Build
-        run: cmake --build build --parallel 2
+        run: cmake --build build --parallel $(nproc)
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
