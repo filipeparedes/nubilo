@@ -45,10 +45,12 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `GET /folders` | yes | | 200 `{"folders": [{id, path, createdAt}], "files": [{id, path, size, contentType, createdAt, updatedAt}]}`: the subfolders and files at the root | 401, 500 |
 | `GET /folders/{id}` | yes | | 200 same shape, with the direct subfolders and files of that folder | 401, 404, 500 |
 | `GET /files/{id}/versions` | yes | | 200 array of `{version, size, contentType, createdAt}`, newest first. The first one is the current version | 401, 404, 500 |
+| `GET /files/{id}/versions/compare?from=N&to=M` | yes | query parameters `from` and `to`, version numbers | 200 `{fromVersion, toVersion, fromSize, toSize, fromChunks, toChunks, unchangedChunks, changes: [{position, from, to}]}`. `from` and `to` in a change are chunk hashes, or `null` if that version has no chunk at the position | 400 missing or invalid parameters, 401, 404 file or version not found, 500 |
 
 ## Notes
 
 * A file is held in memory in full while it is uploaded and when it is downloaded.
 * Routes capture `Db` and `BlobStore` by reference, so both must outlive the server.
-* * A path is made of segments separated by single slashes, for example `docs/2026/notes.txt`. It is rejected with 400 `INVALID_PATH` if it is empty, starts or ends with a slash, 
+* A path is made of segments separated by single slashes, for example `docs/2026/notes.txt`. It is rejected with 400 `INVALID_PATH` if it is empty, starts or ends with a slash, 
 contains a backslash, an empty segment, a `.` or `..` segment or a control character, or is longer than 1024 bytes.
+* Versions are compared chunk by chunk, by position. With fixed-size chunks, a change that moves the rest of the content of a file (an insertion near the start) changes every chunk after it.
