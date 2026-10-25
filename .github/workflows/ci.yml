@@ -22,10 +22,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake libssl-dev zlib1g-dev libbrotli-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake g++-14 libssl-dev zlib1g-dev libbrotli-dev
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14
 
       - name: Build
         run: cmake --build build --parallel
