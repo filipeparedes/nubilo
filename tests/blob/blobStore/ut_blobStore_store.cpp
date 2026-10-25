@@ -92,4 +92,4 @@ TEST_F(UtBlobStoreStore, AcceptsPartOfContentAsStringView) {
     EXPECT_EQ(readRes.value(), "abc");
 }
 
-}<
+}

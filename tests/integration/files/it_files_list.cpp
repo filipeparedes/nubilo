@@ -1,6 +1,6 @@
 #include "../../common/RoutesEnv.h"
 
-using nubilo::test::registerAndLogin;
+using nubilo::test::RoutesEnv;
 using nubilo::test::registerAndLogin;
 
 TEST(ItFilesList, ReturnsUploadedFiles) {
