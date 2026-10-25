@@ -124,6 +124,32 @@ export namespace nubilo {
   ignore. `void`-returning functions with a real side effect (e.g. `exec()`)
   don't need it.
 
+## Testing
+
+Tests use GoogleTest and live under `tests/`, grouped by feature. The layout, the
+helpers and how to add a test are described in [`tests/README.md`](../tests/README.md).
+The rules below are the ones that apply to every test.
+
+- **Unit and integration tests are separate.** A test that calls a function or class
+  directly is a unit test, with the prefix `ut_`. A test that starts the server or
+  sends an HTTP request is an integration test, with the prefix `it_`, and lives in
+  `tests/integration/`.
+- **Files:** `ut_<feature>_<part>.cpp` or `it_<feature>_<part>.cpp`, in camelCase after
+  the prefix (e.g. `ut_files_store.cpp`, `it_auth_login.cpp`). One file covers one part
+  of a feature, so a single file can be run on its own.
+- **Suites:** the file name in PascalCase (e.g. `UtFilesStore`, `ItAuthLogin`). A suite
+  that needs a fixture is an empty subclass of it (`class UtFilesStore : public
+  BlobFixture {};`) and is used with `TEST_F`.
+- **Tests:** named after the behaviour they check, not the function they call
+  (e.g. `ReturnsErrorForNonexistentVersion`). One scenario per test.
+- **Fixtures and helpers** shared by several features go in `tests/common/`. A fixture
+  that belongs to a single module stays in that module's folder.
+- **Isolation:** every test uses its own temporary database and directory and removes
+  them afterwards (fixtures do this automatically). Integration tests use their own
+  server port.
+- **CMake:** every test folder has a `CMakeLists.txt` that adds its files with
+  `target_sources(nubilo_tests PRIVATE ...)`. A new file or folder must be added there.
+
 ## Miscellaneous
 
 - Use `nullptr`, never `NULL` or `0`, for null pointers.
