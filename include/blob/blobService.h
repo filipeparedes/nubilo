@@ -6,6 +6,7 @@
 #include <expected>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace nubilo {
 
@@ -44,6 +45,30 @@ struct VersionInfo {
     int64_t size;
     std::string contentType;
     std::string createdAt;
+};
+
+/**
+ * @struct ChunkChange
+ * @brief A chunk position where two versions of a file differ.
+ * A missing hash means that version has no chunk at that position (it is shorter).
+ */
+struct ChunkChange {
+    int64_t position;
+    std::optional<std::string> fromHash;
+    std::optional<std::string> toHash;
+};
+
+/**
+ * @struct VersionComparison
+ * @brief The result of comparing two versions of a file, chunk by chunk.
+ */
+struct VersionComparison {
+    int64_t fromSize;
+    int64_t toSize;
+    int64_t fromChunks;
+    int64_t toChunks;
+    int64_t unchangedChunks;
+    std::vector<ChunkChange> changes;
 };
 
 /**
@@ -141,6 +166,20 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
  * does not exist), or a BlobError on failure.
  */
 std::expected<std::vector<VersionInfo>, BlobError> listVersions(Db& db, int64_t fileId);
+
+/**
+ * @brief Compares two versions of a file by the hashes of their chunks.
+ *
+ * Chunks are compared by position: with fixed-size chunking, a change near the start of a file that moves the
+ * rest of its content changes every chunk after it (see ADR 0007).
+ * @param db The database where the file is recorded.
+ * @param fileId The id of the file.
+ * @param fromVersion The version to compare from.
+ * @param toVersion The version to compare to.
+ * @return The sizes, chunk counts, number of unchanged chunks and the positions that differ, or a BlobError
+ * if either version does not exist or on failure.
+ */
+std::expected<VersionComparison, BlobError> compareVersions(Db& db, int64_t fileId, int64_t fromVersion, int64_t toVersion);
 
 // ----------------- FOLDERS ----------------
 
