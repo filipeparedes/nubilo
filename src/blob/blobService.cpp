@@ -424,6 +424,55 @@ std::expected<std::vector<VersionInfo>, BlobError> listVersions(Db& db, int64_t 
     return versions;
 }
 
+std::expected<VersionComparison, BlobError> compareVersions(Db& db, int64_t fileId, int64_t fromVersion, int64_t toVersion) {
+    //hold the lock so both versions are read from the same state
+    auto lock = db.lock();
+
+    auto fromSize = loadVersionSize(db, fileId, fromVersion);
+    if (!fromSize)
+        return std::unexpected(fromSize.error());
+    auto toSize = loadVersionSize(db, fileId, toVersion);
+    if (!toSize)
+        return std::unexpected(toSize.error());
+
+    auto fromHashes = loadChunkHashes(db, fileId, fromVersion);
+    if (!fromHashes)
+        return std::unexpected(fromHashes.error());
+    auto toHashes = loadChunkHashes(db, fileId, toVersion);
+    if (!toHashes)
+        return std::unexpected(toHashes.error());
+
+    const auto& from = fromHashes.value();
+    const auto& to = toHashes.value();
+
+    VersionComparison result{
+        fromSize.value(), toSize.value(),
+        static_cast<int64_t>(from.size()), static_cast<int64_t>(to.size()),
+        0, {}};
+
+    //compare position by position, up to the longest of the two
+    size_t count = std::max(from.size(), to.size());
+    for (size_t i = 0; i < count; ++i) {
+        bool inFrom = i < from.size();
+        bool inTo = i < to.size();
+
+        if (inFrom && inTo && from[i] == to[i]) {
+            ++result.unchangedChunks;
+            continue;
+        }
+
+        //different hash, or the chunk exists in only one of the versions
+        ChunkChange change{static_cast<int64_t>(i), std::nullopt, std::nullopt};
+        if (inFrom)
+            change.fromHash = from[i];
+        if (inTo)
+            change.toHash = to[i];
+        result.changes.push_back(std::move(change));
+    }
+
+    return result;
+}
+
 std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const std::string& path) {
     auto lock = db.lock();
     auto tx = DbTransaction::begin(db);
