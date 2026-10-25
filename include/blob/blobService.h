@@ -117,14 +117,16 @@ struct FolderContents {
 std::expected<int64_t, BlobError> storeFile( Db& db, BlobStore& blobStore, int64_t ownerId, const File& file, ThreadPool* pool = nullptr);
 
 /**
- * @brief Reads back the content of the latest version of a file, by its row in the files table, by reading
+ * @brief Reads back the content of a version of a file, by its row in the files table, by reading
  * the chunks of that version in manifest order.
  * @param db The database where the file is recorded.
  * @param blobStore The disk-backed store to read the chunks from.
  * @param fileId The id of the file to read.
+ * @param version The version to read. If empty, the latest version is read.
  * @return The file (path, content, contentType) on success, or a BlobError on failure.
  */
-std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId);
+std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId,
+                                        std::optional<int64_t> version = std::nullopt);
 
 /**
  * @brief Lists the files owned by a given user, without their content.
