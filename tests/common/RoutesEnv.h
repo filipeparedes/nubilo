@@ -31,6 +31,7 @@ struct RoutesEnv {
         registerFileRoutes(router, db, blobStore);
         router.applyTo(server.getServer());
         serverThread = std::thread([this]() { server.run(); });
+        server.getServer().wait_until_ready();
     }
 
     ~RoutesEnv() {
