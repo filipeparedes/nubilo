@@ -9,6 +9,8 @@
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
+#include <optional>
+#include <charconv>
 
 namespace nubilo {
 
@@ -45,6 +47,20 @@ static void writeFolderContents(Db& db, int64_t ownerId, const std::string& path
 
     res.status = 200;
     res.set_content(folderContentsToJson(listRes.value()).dump(), "application/json");
+}
+
+// reads a version number from a query parameter, nullopt if it is missing or not a positive integer
+static std::optional<int64_t> readVersionParam(const httplib::Request& req, const std::string& name) {
+    if (!req.has_param(name))
+        return std::nullopt;
+
+    const std::string value = req.get_param_value(name);
+    int64_t result = 0;
+    auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), result);
+    if (error != std::errc() || end != value.data() + value.size() || result < 1)
+        return std::nullopt;
+
+    return result;
 }
 
 // ------------- ROUTES -------------------
