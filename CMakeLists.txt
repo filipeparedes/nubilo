@@ -68,7 +68,7 @@ add_executable(nubilo
     src/version.cpp
     src/api/HttpServer.cpp
     src/api/Router.cpp
-        src/api/routes/HealthRoutes.cpp
+        src/api/routes/healthRoutes.cpp
         src/storage/Db.cpp
         src/storage/DbMigrator.cpp
         src/storage/DbTransaction.cpp

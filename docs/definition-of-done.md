@@ -31,13 +31,15 @@ A task is **done** when all of the following are true.
 
 ## 3. Testing
 
-- [ ] Unit tests exist for new non-trivial logic (parsing, hashing,
-      diffing, conflict resolution, etc.) and pass locally.
-- [ ] If the change affects how modules interact (e.g. API ↔ Sync engine ↔
-      Storage), at least one integration-level test or manual end-to-end
-      check confirms the interaction works.
+- [ ] Unit tests (`ut_`) exist for new non-trivial logic (parsing, hashing,
+  diffing, conflict resolution, etc.) and pass locally.
+- [ ] If the change adds or modifies an endpoint, or affects how modules interact
+  (e.g. API ↔ Storage), at least one integration test (`it_`) covers it.
 - [ ] Tests are deterministic and should have no reliance on timing, external network
       state, or execution order to pass.
+- [ ] New tests follow the layout and naming in
+    [`coding-standards.md`](./coding-standards.md#testing) and the test count
+    still matches what CI runs.
 
 ## 4. Documentation
 

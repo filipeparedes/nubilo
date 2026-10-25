@@ -74,6 +74,8 @@ cmake --build build --target nubilo_tests
 ctest --test-dir build
 ```
 
+See [`tests/README.md`](tests/README.md) for how the tests are organised and how to run a single one.
+
 The server creates `nubilo.db` and a `blobs/` directory in the folder where it is started.
 
 ---

@@ -1,5 +1,4 @@
 add_executable(nubilo_tests
-        api/HttpServerTest.cpp
         ${CMAKE_SOURCE_DIR}/src/version.cpp
         ${CMAKE_SOURCE_DIR}/src/api/HttpServer.cpp
         ${CMAKE_SOURCE_DIR}/src/api/Router.cpp
@@ -18,20 +17,20 @@ add_executable(nubilo_tests
         ${CMAKE_SOURCE_DIR}/src/blob/chunker.cpp
         ${CMAKE_SOURCE_DIR}/src/blob/path.cpp
         ${CMAKE_SOURCE_DIR}/src/concurrency/ThreadPool.cpp
-        storage/DbTest.cpp
-        storage/DbTransactionTest.cpp
-        storage/DbMigratorTest.cpp
-        api/ErrorResponseTest.cpp
-        auth/passwordHashTest.cpp
-        auth/authServiceTest.cpp
-        api/AuthRoutesTest.cpp
-        blob/BlobStoreTest.cpp
-        blob/blobServiceTest.cpp
-        api/fileRoutesTest.cpp
-        blob/chunkerTest.cpp
-        concurrency/ThreadPoolTest.cpp
-        blob/pathTest.cpp
 )
+
+# Each folder adds its own test files to nubilo_tests (target_sources)
+add_subdirectory(common)
+add_subdirectory(api)
+add_subdirectory(auth)
+add_subdirectory(blob)
+add_subdirectory(files)
+add_subdirectory(folders)
+add_subdirectory(path)
+add_subdirectory(storage)
+add_subdirectory(threads)
+add_subdirectory(versioning)
+add_subdirectory(integration)
 
 target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include ${picosha2_SOURCE_DIR})
 target_compile_options(nubilo_tests PRIVATE -Wall -Wextra)
