@@ -1,6 +1,6 @@
-#include "../common/routesEnv.h"
+#include "../../common/routesEnv.h"
 
-using nubilo::test::RoutesEnv;
+using nubilo::test::registerAndLogin;
 using nubilo::test::registerAndLogin;
 
 TEST(ItFilesDelete, RemovesFile) {
