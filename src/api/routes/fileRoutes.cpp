@@ -317,6 +317,42 @@ static void handleVersionCompare(Db& db, const httplib::Request& req, httplib::R
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleVersionDownload(Db& db, BlobStore& blobStore, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t fileId = std::stoll(req.matches[1]);
+    int64_t version = std::stoll(req.matches[2]);
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
+        return;
+    }
+
+    auto versionRes = db.query(
+        "SELECT 1 FROM file_versions WHERE file_id = ? AND version = ?;",
+        {std::to_string(fileId), std::to_string(version)});
+    if (!versionRes || versionRes.value().empty()) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "Version not found.");
+        return;
+    }
+
+    auto fileRes = readFile(db, blobStore, fileId, version);
+    if (!fileRes) {
+        writeErrorResponse(res, 500, "DOWNLOAD_FAILED", "Could not read file.");
+        return;
+    }
+
+    const auto& file = fileRes.value();
+    res.set_header("Content-Disposition", "attachment; filename=\"" + file.path + "\"");
+    res.set_content(file.content, file.contentType.empty() ? "application/octet-stream" : file.contentType);
+}
+
 // ------------------- FOLDERS ---------------
 
 static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
@@ -433,6 +469,9 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     }));
     router.addRoute("GET", R"(/files/([0-9]+)/versions)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleVersionList(db, req, res, token);
+    }));
+    router.addRoute("GET", R"(/files/([0-9]+)/versions/([0-9]+))", requireAuth(db, [&db, &blobStore](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleVersionDownload(db, blobStore, req, res, token);
     }));
     router.addRoute("GET", R"(/files/([0-9]+)/versions/compare)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleVersionCompare(db, req, res, token);
