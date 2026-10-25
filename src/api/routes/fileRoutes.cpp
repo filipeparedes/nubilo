@@ -255,6 +255,68 @@ static void handleVersionList(Db& db, const httplib::Request& req, httplib::Resp
     res.set_content(responseBody.dump(), "application/json");
 }
 
+static void handleVersionCompare(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
+    int64_t fileId = std::stoll(req.matches[1]);
+
+    auto from = readVersionParam(req, "from");
+    auto to = readVersionParam(req, "to");
+    if (!from || !to) {
+        writeErrorResponse(res, 400, "INVALID_REQUEST", "Query parameters 'from' and 'to' must be version numbers.");
+        return;
+    }
+
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
+        writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
+        return;
+    }
+
+    for (int64_t version : {*from, *to}) {
+        auto versionRes = db.query(
+            "SELECT 1 FROM file_versions WHERE file_id = ? AND version = ?;",
+            {std::to_string(fileId), std::to_string(version)});
+        if (!versionRes || versionRes.value().empty()) {
+            writeErrorResponse(res, 404, "NOT_FOUND", "Version not found.");
+            return;
+        }
+    }
+
+    auto compareRes = compareVersions(db, fileId, *from, *to);
+    if (!compareRes) {
+        writeErrorResponse(res, 500, "COMPARE_FAILED", "Could not compare versions.");
+        return;
+    }
+    const auto& comparison = compareRes.value();
+
+    nlohmann::json changes = nlohmann::json::array();
+    for (const auto& change : comparison.changes) {
+        changes.push_back({
+            {"position", change.position},
+            {"from", change.fromHash ? nlohmann::json(*change.fromHash) : nlohmann::json(nullptr)},
+            {"to", change.toHash ? nlohmann::json(*change.toHash) : nlohmann::json(nullptr)}});
+    }
+
+    nlohmann::json responseBody = {
+        {"fromVersion", *from},
+        {"toVersion", *to},
+        {"fromSize", comparison.fromSize},
+        {"toSize", comparison.toSize},
+        {"fromChunks", comparison.fromChunks},
+        {"toChunks", comparison.toChunks},
+        {"unchangedChunks", comparison.unchangedChunks},
+        {"changes", changes}};
+
+    res.status = 200;
+    res.set_content(responseBody.dump(), "application/json");
+}
+
 // ------------------- FOLDERS ---------------
 
 static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
@@ -369,6 +431,12 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     router.addRoute("POST", R"(/files/([0-9]+)/versions/([0-9]+)/restore)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFileRollback(db, req, res, token);
     }));
+    router.addRoute("GET", R"(/files/([0-9]+)/versions)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleVersionList(db, req, res, token);
+    }));
+    router.addRoute("GET", R"(/files/([0-9]+)/versions/compare)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleVersionCompare(db, req, res, token);
+    }));
     router.addRoute("POST", "/folders", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderCreate(db, req, res, token);
     }));
@@ -380,9 +448,6 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     }));
     router.addRoute("DELETE", R"(/folders/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderDelete(db, req, res, token);
-    }));
-    router.addRoute("GET", R"(/files/([0-9]+)/versions)", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
-        handleVersionList(db, req, res, token);
     }));
 }
 
