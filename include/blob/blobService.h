@@ -167,6 +167,20 @@ std::expected<int64_t, BlobError> rollbackFile(Db& db, int64_t fileId, int64_t v
  */
 std::expected<std::vector<VersionInfo>, BlobError> listVersions(Db& db, int64_t fileId);
 
+/**
+ * @brief Compares two versions of a file by the hashes of their chunks.
+ *
+ * Chunks are compared by position: with fixed-size chunking, a change near the start of a file that moves the
+ * rest of its content changes every chunk after it (see ADR 0007).
+ * @param db The database where the file is recorded.
+ * @param fileId The id of the file.
+ * @param fromVersion The version to compare from.
+ * @param toVersion The version to compare to.
+ * @return The sizes, chunk counts, number of unchanged chunks and the positions that differ, or a BlobError
+ * if either version does not exist or on failure.
+ */
+std::expected<VersionComparison, BlobError> compareVersions(Db& db, int64_t fileId, int64_t fromVersion, int64_t toVersion);
+
 // ----------------- FOLDERS ----------------
 
 /**
