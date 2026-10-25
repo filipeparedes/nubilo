@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
-TEST(ErrorResponseTest, SetsCorrectStatusAndBody) {
+TEST(UtApiErrorResponse, SetsCorrectStatusAndBody) {
     httplib::Response res;
 
     nubilo::writeErrorResponse(res, 404, "NOT_FOUND", "The requested resource does not exist.");
@@ -15,7 +15,7 @@ TEST(ErrorResponseTest, SetsCorrectStatusAndBody) {
     EXPECT_EQ(body["error"]["message"], "The requested resource does not exist.");
 }
 
-TEST(ErrorResponseTest, SetsJsonContentType) {
+TEST(UtApiErrorResponse, SetsJsonContentType) {
     httplib::Response res;
 
     nubilo::writeErrorResponse(res, 500, "INTERNAL_ERROR", "Something went wrong.");
