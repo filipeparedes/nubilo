@@ -235,19 +235,28 @@ std::expected<int64_t, BlobError> storeFile(Db& db, BlobStore& blobStore, int64_
     return fId;
 }
 
-std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId) {
+std::expected<File, BlobError> readFile(Db& db, BlobStore& blobStore, int64_t fileId, std::optional<int64_t> version) {
     auto lock = db.lock();
 
-    auto fileRes = db.query(
+    //without a version, the latest one is read
+    std::string sql =
         "SELECT files.path, file_versions.id AS version_id, file_versions.content_type "
         "FROM files JOIN file_versions ON file_versions.file_id = files.id "
-        "WHERE files.id = ? ORDER BY file_versions.version DESC LIMIT 1;",
-        {std::to_string(fileId)});
+        "WHERE files.id = ? ";
+    std::vector<std::string> params = {std::to_string(fileId)};
+    if (version) {
+        sql += "AND file_versions.version = ?;";
+        params.push_back(std::to_string(*version));
+    } else {
+        sql += "ORDER BY file_versions.version DESC LIMIT 1;";
+    }
+
+    auto fileRes = db.query(sql, params);
     if (!fileRes)
         return std::unexpected(BlobError{fileRes.error().msg});
 
     if (fileRes.value().empty())
-        return std::unexpected(BlobError{"File not found."});
+        return std::unexpected(BlobError{version ? "Version not found." : "File not found."});
 
     const auto& fileRow = fileRes.value()[0];
     std::string path = fileRow["path"].get<std::string>();

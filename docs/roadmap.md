@@ -111,7 +111,7 @@ to adjust scope during implementation.
 ## v0.6 (Sprint 6) (nubilo + nubilo-web) (~68h)
 - Folder support (hierarchical paths, folder listing and operations), done first because it changes the API contract
 - CI pipeline (build and tests on every push and pull request)
-- Versioning completion: version listing endpoint
+- Versioning completion: version listing, comparison and download endpoints
 - CORS support, so the browser frontend can call the API
 - Frontend project setup (Vite + React + TS, in `nubilo-web`)
 
