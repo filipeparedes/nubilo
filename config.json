@@ -1,0 +1,16 @@
+{
+  "config": {
+    "server": {
+      "host": "0.0.0.0",
+      "port": 8080
+    },
+    "storage": {
+      "dbPath": "nubilo.db",
+      "blobDir": "blobs",
+      "threads": 0
+    },
+    "auth": {
+      "sessionDays": 7
+    }
+  }
+}
