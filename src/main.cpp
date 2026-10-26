@@ -8,7 +8,6 @@
 #include "storage/Db.h"
 #include "storage/DbMigrations.h"
 #include "storage/DbMigrator.h"
-#include "version.h"
 
 #include <memory>
 #include <print>
@@ -18,7 +17,7 @@
  * @return 0 on normal exit.
  */
 int main() {
-    std::println("Nubilo backend {} starting...", nubilo::getVersion());
+    std::println("Nubilo server starting...");
 
     // ------ DATABASE -----
 

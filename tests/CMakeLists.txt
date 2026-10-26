@@ -1,5 +1,4 @@
 add_executable(nubilo_tests
-        ${CMAKE_SOURCE_DIR}/src/version.cpp
         ${CMAKE_SOURCE_DIR}/src/api/HttpServer.cpp
         ${CMAKE_SOURCE_DIR}/src/api/Router.cpp
         ${CMAKE_SOURCE_DIR}/src/api/ErrorResponse.cpp
