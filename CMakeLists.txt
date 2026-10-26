@@ -66,6 +66,7 @@ FetchContent_MakeAvailable(picosha2)
 add_executable(nubilo
     src/main.cpp
     src/version.cpp
+    src/config.cpp
     src/api/HttpServer.cpp
     src/api/Router.cpp
         src/api/routes/healthRoutes.cpp
