@@ -1,4 +1,7 @@
 {
+  "app": {
+    "version": "0.7-dev"
+  },
   "config": {
     "server": {
       "host": "0.0.0.0",
