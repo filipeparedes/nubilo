@@ -6,7 +6,6 @@
 #include <string>
 
 namespace nubilo {
-
 struct ConfigError {
     std::string message;
 };
@@ -26,3 +25,5 @@ struct ConfigError {
  * opened, is not valid JSON, or a key is missing, has the wrong type or is out of range.
  */
 std::expected<nlohmann::json, ConfigError> loadConfig(const std::string& path);
+
+}
