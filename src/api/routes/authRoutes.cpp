@@ -61,7 +61,7 @@ static void handleUserRegistration(Db& db, const httplib::Request& req, httplib:
  * @param req The incoming HTTP request (expects JSON body with "email" and "password")
  * @param res [out] The response to write to
  */
-static void handleUserAuthentication(Db& db, const httplib::Request& req, httplib::Response& res) {
+static void handleUserAuthentication(Db& db, const httplib::Request& req, httplib::Response& res, int sessionDays) {
     //parse the request body
     // is_discarded() catches malformed JSON without throwing
     nlohmann::json body = nlohmann::json::parse(req.body, nullptr, false);
@@ -75,7 +75,7 @@ static void handleUserAuthentication(Db& db, const httplib::Request& req, httpli
         return;
     }
 
-    auto authRes = authenticateUser(db, body.at("email"), body.at("password"));
+    auto authRes = authenticateUser(db, body.at("email"), body.at("password"), sessionDays);
     if (!authRes) {
         writeErrorResponse(res, 401, "AUTHENTICATION_FAILED", "Invalid credentials.");
         return;
@@ -98,12 +98,12 @@ static void handleSessionInvalidation(Db& db, const httplib::Request&, httplib::
 
 // ------------ ROUTE REGISTRATION ----------
 
-void registerAuthRoutes(Router& router, Db& db) {
+void registerAuthRoutes(Router& router, Db& db, int sessionDays) {
     router.addRoute("POST", "/auth/register", [&db](const httplib::Request& req, httplib::Response& res) {
         handleUserRegistration(db, req, res);
     });
-    router.addRoute("POST", "/auth/login", [&db](const httplib::Request& req, httplib::Response& res) {
-       handleUserAuthentication(db, req, res);
+    router.addRoute("POST", "/auth/login", [&db, sessionDays](const httplib::Request& req, httplib::Response& res) {
+       handleUserAuthentication(db, req, res, sessionDays);
     });
     router.addRoute("POST", "/auth/logout", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleSessionInvalidation(db, req, res, token);

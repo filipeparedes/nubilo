@@ -34,9 +34,10 @@ std::expected<int64_t, AuthError> registerUser(Db& db, const std::string& email,
  * @param db The database where the user is registered
  * @param email The user's email
  * @param password The user's plaintext password
+ * @param sessionDays How many days the new session lasts, default is 14
  * @return The user's session token on success, or an AuthError on failure
  */
-std::expected<std::string, AuthError> authenticateUser(Db& db, const std::string& email, const std::string& password);
+std::expected<std::string, AuthError> authenticateUser(Db& db, const std::string& email, const std::string& password, int sessionDays = 14);
 
 /**
  * @brief Attempts to invalidate a session (logout)
