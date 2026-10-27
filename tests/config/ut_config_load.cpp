@@ -15,7 +15,7 @@ nlohmann::json validConfig() {
     return nlohmann::json::parse(R"({
         "app": {"version": "0.7-dev"},
         "config": {
-            "server": {"host": "0.0.0.0", "port": 8080},
+            "server": {"host": "0.0.0.0", "port": 8080, "corsOrigin":"http://localhost:5173"},
             "storage": {"dbPath": "nubilo.db", "blobDir": "blobs", "threads": 0},
             "auth": {"sessionDays": 7}
         }

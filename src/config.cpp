@@ -41,7 +41,10 @@ std::expected<nlohmann::json, ConfigError> loadConfig(const std::string& path) {
 
     nlohmann::json config = root.at("config");
 
-    for (const StringKey& key : {StringKey{"server", "host"}, StringKey{"storage", "dbPath"}, StringKey{"storage", "blobDir"}}) {
+    for (const StringKey& key : {StringKey{"server", "host"},
+                                 StringKey{"storage", "dbPath"},
+                                 StringKey{"storage", "blobDir"},
+                                 StringKey{"server", "corsOrigin"}}) {
         if (!hasKey(config, key.section, key.name) || !config.at(key.section).at(key.name).is_string())
             return std::unexpected(ConfigError{"\"" + fullName(key.section, key.name) + "\" is missing or is not a string in " + path + "."});
     }
