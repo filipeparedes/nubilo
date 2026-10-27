@@ -15,7 +15,7 @@ User accounts and login sessions: registration, password hashing, login and logo
 
 **Passwords.** They are hashed with Argon2id (2 passes, 64 MiB of memory, 2 lanes, 32-byte hash) using a random 16-byte salt per password. The stored value is the encoded hash, which already contains the salt and the parameters, so `verifyPassword` needs nothing else. Plaintext passwords are never stored.
 
-**Login.** `authenticateUser` looks the user up by email and verifies the password. On success it creates a session: a random token of 32 bytes written as 64 hex characters, stored in `sessions` with an expiration date 7 days ahead. An unknown email and a wrong password both return the same `InvalidCredentials` error, so a caller cannot tell which one failed.
+**Login.** `authenticateUser` looks the user up by email and verifies the password. On success it creates a session: a random token of 32 bytes written as 64 hex characters, stored in `sessions` with a default expiration date of 14 days ahead. An unknown email and a wrong password both return the same `InvalidCredentials` error, so a caller cannot tell which one failed.
 
 **Logout.** `invalidateSession` deletes the session row.
 
