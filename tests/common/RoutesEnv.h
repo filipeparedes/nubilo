@@ -30,6 +30,7 @@ struct RoutesEnv {
         registerAuthRoutes(router, db);
         registerFileRoutes(router, db, blobStore);
         router.applyTo(server.getServer());
+        server.enableCors("http://localhost:5173");
         serverThread = std::thread([this]() { server.run(); });
         server.getServer().wait_until_ready();
     }
