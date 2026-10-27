@@ -1,6 +1,7 @@
 #pragma once
 
 #include <httplib.h>
+#include <string>
 
 namespace nubilo {
 
@@ -14,7 +15,7 @@ namespace nubilo {
  */
 class HttpServer {
 public:
-    explicit HttpServer(int port);
+    explicit HttpServer(int port, const std::string& host = "0.0.0.0");
 
     /**
      * @brief Exposes the underlying httplib server, for Router::applyTo();
@@ -43,6 +44,7 @@ public:
 private:
     httplib::Server server_;
     int port_;
+    std::string host_;
 };
 
 }

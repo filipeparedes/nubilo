@@ -80,6 +80,23 @@ The server creates `nubilo.db` and a `blobs/` directory in the folder where it i
 
 ---
 
+## Configuration
+
+The server reads its settings from `config.json`, in the folder where it is started. Another file can be given as the first argument (`./build/nubilo other.json`). If the file is missing or a value is not valid, the server does not start. The `app` section is not read by the server.
+
+| Key (inside `config`) | Meaning |
+|---|---|
+| `server.host` | Address to listen on: `0.0.0.0` for all interfaces, `127.0.0.1` for local connections only |
+| `server.port` | Port to listen on, from 1 to 65535 |
+| `storage.dbPath` | Path of the SQLite database file |
+| `storage.blobDir` | Directory where the chunks are stored |
+| `storage.threads` | Worker threads used to store the chunks of a file, from 0 to 1024. 0 means one per core |
+| `auth.sessionDays` | How many days a session lasts after login |
+
+The file has no secrets, so it is versioned with the code.
+
+---
+
 ## Quick tour
 
 ```bash
