@@ -39,6 +39,7 @@ int main(int argc, char** argv) {
     const std::string blobDir = config["storage"]["blobDir"].get<std::string>();
     const size_t threads = config["storage"]["threads"].get<size_t>();
     const int sessionDays = config["auth"]["sessionDays"].get<int>();
+    const std::string corsOrigin = config["server"]["corsOrigin"].get<std::string>();
 
     std::println("Configuration loaded from {}.", configPath);
 
@@ -86,6 +87,7 @@ int main(int argc, char** argv) {
     nubilo::registerFileRoutes(router, db, blobStore, pool.get());
 
     router.applyTo(server.getServer());
+    server.enableCors(corsOrigin);
     server.run();
 
     return 0;

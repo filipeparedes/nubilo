@@ -6,7 +6,7 @@ The HTTP layer: server, routing, authentication check and the route handlers. It
 
 | File | Role |
 |---|---|
-| `HttpServer.h` / `HttpServer.cpp` | Owns the cpp-httplib server. `run()` listens on a port and blocks, `stop()` ends it. |
+| `HttpServer.h` / `HttpServer.cpp` | Owns the cpp-httplib server. `run()` listens on a host and port and blocks, `stop()` ends it. `enableCors()` allows the frontend to call the API (see below). |
 | `Router.h` / `Router.cpp` | Registry of routes (method, path, callback). Modules register routes here and `applyTo()` hands them to the server. |
 | `middleware.h` / `middleware.cpp` | `requireAuth`: wraps a handler so it only runs for a valid session. |
 | `ErrorResponse.h` / `ErrorResponse.cpp` | `writeErrorResponse`: the single place that builds error bodies. |
@@ -25,6 +25,11 @@ The HTTP layer: server, routing, authentication check and the route handlers. It
 **Errors.** Every error has the same JSON body:
 
     {"error": {"code": "NOT_FOUND", "message": "File not found."}}
+
+**CORS.** A browser only lets a page call an API on another origin if the server allows it. `HttpServer::enableCors(origin)` allows one origin, the address of the frontend (`server.corsOrigin` in the configuration). 
+It does two things. It answers the preflight `OPTIONS` request that the browser sends before a request with an `Authorization` header, with 204 and no body. And it adds the `Access-Control-*` headers to every response to a request whose `Origin` is exactly the 
+allowed one, errors included, so the frontend can read a 401. The headers allow `GET`, `POST`, `DELETE` and `OPTIONS`, the `Authorization` and `Content-Type` request headers, and expose `Content-Disposition` so the frontend can read the file name of a download. A request from any other origin, 
+or without an `Origin` header, gets no CORS headers. Only one origin is accepted, and it must be called before `run()`.
 
 ## Endpoints
 

@@ -72,3 +72,5 @@ Testing/
 
 .DS_Store
 .idea
+nubilo.db
+blobs/

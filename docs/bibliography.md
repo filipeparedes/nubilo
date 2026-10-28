@@ -51,3 +51,4 @@
 * *From Trees to Tables: Storing Hierarchical Data in Relational Databases*. Medium. https://medium.com/@rishabhdevmanu/from-trees-to-tables-storing-hierarchical-data-in-relational-databases-a5e5e6e1bd64
 * *Comparing two files in C++*. Stack Overflow. https://stackoverflow.com/questions/9464712/comparing-two-files-in-c
 * *C++ File Comparison*. CodeGuru Forums. https://forums.codeguru.com/showthread.php?482418-C-File-Comparison
+* MDN Web Docs. *Cross-Origin Resource Sharing (CORS)*. https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS

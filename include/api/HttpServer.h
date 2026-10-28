@@ -33,6 +33,14 @@ public:
      */
     void stop();
 
+    /**
+     * @brief Allows a browser page served from the given origin to call the API (CORS).
+     * Answers the preflight OPTIONS requests and adds the CORS headers to the responses to that origin.
+     * Must be called before run().
+     * @param allowedOrigin The origin to allow, e.g. "http://localhost:5173"
+     */
+    void enableCors(const std::string& allowedOrigin);
+
 private:
     httplib::Server server_;
     int port_;

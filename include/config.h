@@ -15,7 +15,7 @@ struct ConfigError {
  *
  * The file is an object with a "config" object that must have these keys, which are all required
  * (there are no default values):
- * - "server": "host" (string) and "port" (integer, 1 to 65535)
+ * - "server": "host" and "corsOrigin" (string) and "port" (integer, 1 to 65535)
  * - "storage": "dbPath" and "blobDir" (strings) and "threads" (integer, 0 to 1024; 0 means one per core)
  * - "auth": "sessionDays" (integer, 1 to 3650)
  *
