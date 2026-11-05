@@ -78,3 +78,36 @@ TEST_F(UtFoldersList, WorksWithNonAsciiFolderNames) {
 
     EXPECT_EQ(paths(*result), (std::vector<std::string>{"file:relat\xC3\xB3rios/2026.txt"}));
 }
+
+TEST_F(UtFoldersList, ListsEveryFolderAtAnyDepth) {
+    storeText(1, "docs/sub/deep/a.txt");
+    ASSERT_TRUE(nubilo::createFolder(*db_, 1, "img").has_value());
+
+    auto result = nubilo::listFolders(*db_, 1);
+    ASSERT_TRUE(result.has_value());
+
+    std::vector<std::string> found;
+    for (const auto& folder : *result)
+        found.push_back(folder.path);
+    EXPECT_EQ(found, (std::vector<std::string>{"docs", "docs/sub", "docs/sub/deep", "img"}));
+}
+
+TEST_F(UtFoldersList, ListsNoFilesAndNoFoldersOfOtherUsers) {
+    storeText(1, "mine/a.txt");
+    storeText(2, "theirs/b.txt");
+
+    auto result = nubilo::listFolders(*db_, 1);
+    ASSERT_TRUE(result.has_value());
+
+    ASSERT_EQ(result->size(), 1u);
+    EXPECT_EQ(result->front().path, "mine");
+}
+
+TEST_F(UtFoldersList, ListsNothingForAUserWithoutFolders) {
+    storeText(1, "notes.txt");
+
+    auto result = nubilo::listFolders(*db_, 1);
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_TRUE(result->empty());
+}
