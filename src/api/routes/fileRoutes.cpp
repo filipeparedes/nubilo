@@ -15,14 +15,17 @@
 namespace nubilo {
 
 // -------- HELPER FUNCTIONS --------------
+static nlohmann::json folderToJson(const FolderInfo& folder) {
+    return {
+        {"id", folder.id},
+        {"path", folder.path},
+        {"createdAt", folder.createdAt}};
+}
+
 static nlohmann::json folderContentsToJson(const FolderContents& contents) {
     nlohmann::json folders = nlohmann::json::array();
-    for (const auto& folder : contents.folders) {
-        folders.push_back({
-            {"id", folder.id},
-            {"path", folder.path},
-            {"createdAt", folder.createdAt}});
-    }
+    for (const auto& folder : contents.folders)
+        folders.push_back(folderToJson(folder));
 
     nlohmann::json files = nlohmann::json::array();
     for (const auto& file : contents.files) {
@@ -391,7 +394,7 @@ static void handleFolderCreate(Db& db, const httplib::Request& req, httplib::Res
     res.set_content(responseBody.dump(), "application/json");
 }
 
-static void handleFolderRootList(Db& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
+static void handleRootContents(Db& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
     auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
     if (!userRes || userRes.value().empty()) {
         writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
@@ -422,6 +425,28 @@ static void handleFolderListById(Db& db, const httplib::Request& req, httplib::R
     }
 
     writeFolderContents(db, ownerId, folderRes.value()[0]["path"].get<std::string>(), res);
+}
+
+static void handleFolderList(Db& db, const httplib::Request&, httplib::Response& res, const std::string& token) {
+    auto userRes = db.query("SELECT user_id FROM sessions WHERE token = ?;", {token});
+    if (!userRes || userRes.value().empty()) {
+        writeErrorResponse(res, 401, "UNAUTHORIZED", "Invalid token.");
+        return;
+    }
+    int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
+
+    auto listRes = listFolders(db, ownerId);
+    if (!listRes) {
+        writeErrorResponse(res, 500, "LIST_FAILED", "Could not list folders.");
+        return;
+    }
+
+    nlohmann::json responseBody = nlohmann::json::array();
+    for (const auto& folder : listRes.value())
+        responseBody.push_back(folderToJson(folder));
+
+    res.status = 200;
+    res.set_content(responseBody.dump(), "application/json");
 }
 
 static void handleFolderDelete(Db& db, const httplib::Request& req, httplib::Response& res, const std::string& token) {
@@ -479,8 +504,11 @@ void registerFileRoutes(Router& router, Db& db, BlobStore& blobStore, ThreadPool
     router.addRoute("POST", "/folders", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderCreate(db, req, res, token);
     }));
+    router.addRoute("GET", "/root-contents", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
+        handleRootContents(db, req, res, token);
+    }));
     router.addRoute("GET", "/folders", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
-        handleFolderRootList(db, req, res, token);
+        handleFolderList(db, req, res, token);
     }));
     router.addRoute("GET", R"(/folders/([0-9]+))", requireAuth(db, [&db](const httplib::Request& req, httplib::Response& res, const std::string& token) {
         handleFolderListById(db, req, res, token);

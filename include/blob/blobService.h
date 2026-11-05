@@ -210,6 +210,16 @@ std::expected<int64_t, BlobError> createFolder(Db& db, int64_t ownerId, const st
 std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, const std::string& path);
 
 /**
+ * @brief Lists every folder of a user, at any depth, ordered by path.
+ *
+ * Unlike listFolder, it lists ONLY folders and does not stop at the direct children, so a client can draw the whole tree.
+ * @param db The database holding the folders.
+ * @param ownerId The id of the user who owns the folders.
+ * @return The folders on success, or a BlobError on failure.
+ */
+std::expected<std::vector<FolderInfo>, BlobError> listFolders(Db& db, int64_t ownerId);
+
+/**
  * @brief Deletes a folder together with everything inside it: its subfolders, its files and all the
  * versions and chunk manifests of those files.
  *

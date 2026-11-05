@@ -564,6 +564,24 @@ std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, con
     return contents;
 }
 
+std::expected<std::vector<FolderInfo>, BlobError> listFolders(Db& db, int64_t ownerId) {
+    auto foldersRes = db.query(
+        "SELECT id, path, created_at FROM folders WHERE owner_id = ? ORDER BY path;",
+        {std::to_string(ownerId)});
+    if (!foldersRes)
+        return std::unexpected(BlobError{foldersRes.error().msg});
+
+    std::vector<FolderInfo> folders;
+    for (const auto& row : foldersRes.value()) {
+        folders.push_back(FolderInfo{
+            row["id"].get<int64_t>(),
+            row["path"].get<std::string>(),
+            row["created_at"].get<std::string>()});
+    }
+
+    return folders;
+}
+
 std::expected<void, BlobError> deleteFolder(Db& db, int64_t folderId) {
     auto lock = db.lock();
     auto tx = DbTransaction::begin(db);

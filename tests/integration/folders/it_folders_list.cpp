@@ -17,7 +17,7 @@ TEST(ItFoldersList, RootShowsFoldersAndFiles) {
     };
     client.Post("/files", headers, items);
 
-    auto result = client.Get("/folders", headers);
+    auto result = client.Get("/root-contents", headers);
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
@@ -83,11 +83,40 @@ TEST(ItFoldersList, RejectsMissingToken) {
     RoutesEnv env(testPort);
     auto client = env.newClient();
 
-    auto root = client.Get("/folders");
+    auto root = client.Get("/root-contents");
+    auto folders = client.Get("/folders");
     auto byId = client.Get("/folders/1");
 
     ASSERT_TRUE(root);
+    ASSERT_TRUE(folders);
     ASSERT_TRUE(byId);
     EXPECT_EQ(root->status, 401);
+    EXPECT_EQ(folders->status, 401);
     EXPECT_EQ(byId->status, 401);
+}
+
+TEST(ItFoldersList, FolderListShowsEveryFolderAndNoFiles) {
+    constexpr int testPort = 8152;
+    RoutesEnv env(testPort);
+    auto client = env.newClient();
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    client.Post("/folders", headers, R"({"path":"docs/sub"})", "application/json");
+    httplib::MultipartFormDataItems items = {
+        {"file", "hello, nubilo", "notes.txt", "text/plain"}
+    };
+    client.Post("/files", headers, items);
+
+    auto result = client.Get("/folders", headers);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->status, 200);
+    auto body = nlohmann::json::parse(result->body);
+    ASSERT_TRUE(body.is_array());
+    ASSERT_EQ(body.size(), 2);
+    EXPECT_EQ(body[0]["path"].get<std::string>(), "docs");
+    EXPECT_EQ(body[1]["path"].get<std::string>(), "docs/sub");
+    EXPECT_TRUE(body[0].contains("id"));
+    EXPECT_TRUE(body[0].contains("createdAt"));
 }
