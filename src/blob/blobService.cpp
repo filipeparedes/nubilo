@@ -544,6 +544,8 @@ std::expected<FolderContents, BlobError> listFolder(Db& db, int64_t ownerId, con
         return std::unexpected(BlobError{filesRes.error().msg});
 
     FolderContents contents;
+    contents.path = path;
+
     for (const auto& row : foldersRes.value()) {
         contents.folders.push_back(FolderInfo{
             row["id"].get<int64_t>(),
