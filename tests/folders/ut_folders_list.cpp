@@ -111,3 +111,18 @@ TEST_F(UtFoldersList, ListsNothingForAUserWithoutFolders) {
 
     EXPECT_TRUE(result->empty());
 }
+
+TEST_F(UtFoldersList, ReturnsThePathOfTheListedFolder) {
+    storeText(1, "docs/sub/a.txt");
+
+    auto root = nubilo::listFolder(*db_, 1, "");
+    auto docs = nubilo::listFolder(*db_, 1, "docs");
+    auto sub = nubilo::listFolder(*db_, 1, "docs/sub");
+
+    ASSERT_TRUE(root.has_value());
+    ASSERT_TRUE(docs.has_value());
+    ASSERT_TRUE(sub.has_value());
+    EXPECT_EQ(root->path, "");
+    EXPECT_EQ(docs->path, "docs");
+    EXPECT_EQ(sub->path, "docs/sub");
+}
