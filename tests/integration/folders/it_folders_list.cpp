@@ -22,6 +22,7 @@ TEST(ItFoldersList, RootShowsFoldersAndFiles) {
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
     auto body = nlohmann::json::parse(result->body);
+    EXPECT_EQ(body["path"].get<std::string>(), "");
     ASSERT_EQ(body["folders"].size(), 1);
     EXPECT_EQ(body["folders"][0]["path"].get<std::string>(), "docs");
     ASSERT_EQ(body["files"].size(), 1);
@@ -50,6 +51,7 @@ TEST(ItFoldersList, FolderByIdShowsItsDirectChildren) {
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
     auto body = nlohmann::json::parse(result->body);
+    EXPECT_EQ(body["path"].get<std::string>(), "docs");
     ASSERT_EQ(body["folders"].size(), 1);
     EXPECT_EQ(body["folders"][0]["path"].get<std::string>(), "docs/sub");
     ASSERT_EQ(body["files"].size(), 1);

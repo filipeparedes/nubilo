@@ -83,10 +83,12 @@ struct FolderInfo {
 
 /**
  * @struct FolderContents
- * @brief What a folder holds directly: its subfolders and its files.
+ * @brief What a folder holds directly: its subfolders and its files, and the path of the folder itself
+ * (empty for the root).
  * Files are described by their latest version, like in listFiles.
  */
 struct FolderContents {
+    std::string path;
     std::vector<FolderInfo> folders;
     std::vector<FileInfo> files;
 };

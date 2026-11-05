@@ -38,7 +38,7 @@ static nlohmann::json folderContentsToJson(const FolderContents& contents) {
             {"updatedAt", file.updatedAt}});
     }
 
-    return {{"folders", folders}, {"files", files}};
+    return {{"path", contents.path}, {"folders", folders}, {"files", files}};
 }
 
 static void writeFolderContents(Db& db, int64_t ownerId, const std::string& path, httplib::Response& res) {
