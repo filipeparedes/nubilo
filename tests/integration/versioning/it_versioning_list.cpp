@@ -23,13 +23,15 @@ TEST(ItVersioningList, ReturnsVersionsNewestFirst) {
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
     auto body = nlohmann::json::parse(result->body);
-    ASSERT_EQ(body.size(), 2);
-    EXPECT_EQ(body[0]["version"].get<int64_t>(), 2);
-    EXPECT_EQ(body[0]["size"].get<int64_t>(), 14);
-    EXPECT_EQ(body[0]["contentType"].get<std::string>(), "text/plain");
-    EXPECT_TRUE(body[0].contains("createdAt"));
-    EXPECT_EQ(body[1]["version"].get<int64_t>(), 1);
-    EXPECT_EQ(body[1]["size"].get<int64_t>(), 5);
+    EXPECT_EQ(body["path"].get<std::string>(), "notes.txt");
+    auto versions = body["versions"];
+    ASSERT_EQ(versions.size(), 2);
+    EXPECT_EQ(versions[0]["version"].get<int64_t>(), 2);
+    EXPECT_EQ(versions[0]["size"].get<int64_t>(), 14);
+    EXPECT_EQ(versions[0]["contentType"].get<std::string>(), "text/plain");
+    EXPECT_TRUE(versions[0].contains("createdAt"));
+    EXPECT_EQ(versions[1]["version"].get<int64_t>(), 1);
+    EXPECT_EQ(versions[1]["size"].get<int64_t>(), 5);
 }
 
 TEST(ItVersioningList, ShowsVersionCreatedByRestore) {
@@ -52,8 +54,9 @@ TEST(ItVersioningList, ShowsVersionCreatedByRestore) {
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
     auto body = nlohmann::json::parse(result->body);
-    ASSERT_EQ(body.size(), 3);
-    EXPECT_EQ(body[0]["version"].get<int64_t>(), 3);
+    auto versions = body["versions"];
+    ASSERT_EQ(versions.size(), 3);
+    EXPECT_EQ(versions[0]["version"].get<int64_t>(), 3);
 }
 
 TEST(ItVersioningList, RejectsMissingToken) {
@@ -88,4 +91,25 @@ TEST(ItVersioningList, ReturnsNotFoundForMissingOrForeignFile) {
     ASSERT_TRUE(missing);
     EXPECT_EQ(foreign->status, 404);
     EXPECT_EQ(missing->status, 404);
+}
+
+TEST(ItVersioningList, ReturnsTheFullPathOfANestedFile) {
+    constexpr int testPort = 8153;
+    RoutesEnv env(testPort);
+    auto client = env.newClient();
+    std::string token = registerAndLogin(client);
+    httplib::Headers headers = {{"Authorization", "Bearer " + token}};
+
+    httplib::MultipartFormDataItems items = {{"file", "hello", "notes.txt", "text/plain"}};
+    auto upload = client.Post("/files?path=docs/2026/notes.txt", headers, items);
+    ASSERT_TRUE(upload);
+    int64_t fileId = nlohmann::json::parse(upload->body)["id"].get<int64_t>();
+
+    auto result = client.Get("/files/" + std::to_string(fileId) + "/versions", headers);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->status, 200);
+    auto body = nlohmann::json::parse(result->body);
+    EXPECT_EQ(body["path"].get<std::string>(), "docs/2026/notes.txt");
+    EXPECT_EQ(body["versions"].size(), 1);
 }
