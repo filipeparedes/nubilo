@@ -233,7 +233,7 @@ static void handleVersionList(Db& db, const httplib::Request& req, httplib::Resp
     }
     int64_t ownerId = userRes.value()[0]["user_id"].get<int64_t>();
 
-    auto ownerRes = db.query("SELECT owner_id FROM files WHERE id = ?;", {std::to_string(fileId)});
+    auto ownerRes = db.query("SELECT owner_id, path FROM files WHERE id = ?;", {std::to_string(fileId)});
     if (!ownerRes || ownerRes.value().empty() || ownerRes.value()[0]["owner_id"].get<int64_t>() != ownerId) {
         writeErrorResponse(res, 404, "NOT_FOUND", "File not found.");
         return;
@@ -245,14 +245,18 @@ static void handleVersionList(Db& db, const httplib::Request& req, httplib::Resp
         return;
     }
 
-    nlohmann::json responseBody = nlohmann::json::array();
+    nlohmann::json versions = nlohmann::json::array();
     for (const auto& version : listRes.value()) {
-        responseBody.push_back({
+        versions.push_back({
             {"version", version.version},
             {"size", version.size},
             {"contentType", version.contentType},
             {"createdAt", version.createdAt}});
     }
+
+    nlohmann::json responseBody = {
+        {"path", ownerRes.value()[0]["path"].get<std::string>()},
+        {"versions", versions}};
 
     res.status = 200;
     res.set_content(responseBody.dump(), "application/json");
