@@ -126,29 +126,32 @@ export namespace nubilo {
 
 ## Testing
 
-Tests use GoogleTest and live under `tests/`, grouped by feature. The layout, the
+Unit tests use GoogleTest (C++) and integration tests use pytest (Python). They live under `tests/`, grouped by feature. The layout, the
 helpers and how to add a test are described in [`tests/README.md`](../tests/README.md).
 The rules below are the ones that apply to every test.
 
 - **Unit and integration tests are separate.** A test that calls a function or class
   directly is a unit test, with the prefix `ut_`. A test that starts the server or
-  sends an HTTP request is an integration test, with the prefix `it_`, and lives in
-  `tests/integration/`.
-- **Files:** `ut_<feature>_<part>.cpp` or `it_<feature>_<part>.cpp`, in camelCase after
-  the prefix (e.g. `ut_files_store.cpp`, `it_auth_login.cpp`). One file covers one part
-  of a feature, so a single file can be run on its own.
-- **Suites:** the file name in PascalCase (e.g. `UtFilesStore`, `ItAuthLogin`). A suite
+  sends an HTTP request is an integration test, with the prefix `it_`, written in
+  Python, and lives in `tests/integration/`.
+- **Files:** `ut_<feature>_<part>.cpp` or `it_<feature>_<part>.py`, in camelCase after
+  the prefix for C++ and snake_case for Python (e.g. `ut_files_store.cpp`,
+  `it_auth_login.py`). One file covers one part of a feature, so a single file can be
+  run on its own.
+- **Suites (C++):** the file name in PascalCase (e.g. `UtFilesStore`). A suite
   that needs a fixture is an empty subclass of it (`class UtFilesStore : public
   BlobFixture {};`) and is used with `TEST_F`.
 - **Tests:** named after the behaviour they check, not the function they call
-  (e.g. `ReturnsErrorForNonexistentVersion`). One scenario per test.
+  (e.g. `ReturnsErrorForNonexistentVersion`, or `test_returns_not_found_for_missing_version`
+  in Python). One scenario per test.
 - **Fixtures and helpers** shared by several features go in `tests/common/`. A fixture
   that belongs to a single module stays in that module's folder.
 - **Isolation:** every test uses its own temporary database and directory and removes
-  them afterwards (fixtures do this automatically). Integration tests use their own
-  server port.
-- **CMake:** every test folder has a `CMakeLists.txt` that adds its files with
+  them afterwards (fixtures do this automatically). Every integration test starts its own
+  server, on its own port.
+- **CMake:** every unit test folder has a `CMakeLists.txt` that adds its files with
   `target_sources(nubilo_tests PRIVATE ...)`. A new file or folder must be added there.
+  The integration tests are not built by CMake.
 
 ## Miscellaneous
 

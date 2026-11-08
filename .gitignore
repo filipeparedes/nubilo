@@ -74,3 +74,9 @@ Testing/
 .idea
 nubilo.db
 blobs/
+
+# Python (integration tests)
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
