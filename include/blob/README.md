@@ -7,7 +7,7 @@ the ordered list of chunks that make up each version of a file. Identical chunks
 
 | File | Role |
 |---|---|
-| `blobService.h` / `blobService.cpp` | The functions the routes call: `storeFile`, `readFile`, `listFiles`, `deleteFile`. They combine the disk store with the database. |
+| `blobService.h` / `blobService.cpp` | The functions the routes call: `storeFile`, `readFile`, `listFiles`, `deleteFile`, `rollbackFile`, `listVersions`, `compareVersions` and the folder functions `createFolder`, `listFolder`, `listFolders` and `deleteFolder`. They combine the disk store with the database. |
 | `BlobStore.h` / `BlobStore.cpp` | Content-addressed storage on disk. Hashes content, writes it, reads it back by hash. |
 | `chunker.h` / `chunker.cpp` | `chunkContent`: splits content into chunks of at most a given size. |
 | `BlobError.h` | Error type returned by every call in this module (`BlobError{message}`). |
@@ -17,7 +17,7 @@ the ordered list of chunks that make up each version of a file. Identical chunks
 
 **Layers.** Routes call `blobService`, which uses `BlobStore` for the bytes on disk and `Db` (see the `storage` module) for the records.
 
-**On disk.** `BlobStore` keeps each blob in `root/<hash[0:2]>/<hash[2:4]>/<hash>`, so no single directory grows too large. The server uses the `blobs` directory next to where it runs.
+**On disk.** `BlobStore` keeps each blob in `root/<hash[0:2]>/<hash[2:4]>/<hash>`, so no single directory grows too large. The server uses the directory set in `storage.blobDir` of the configuration.
 
 **Storing a file.**
 1. `chunkContent` splits the content into chunks of 4 MiB. The last chunk holds what remains and an empty file has no chunks.
@@ -36,6 +36,10 @@ the chunks are written one after another on the calling thread.
 the version number goes up by one. Each version has its own size, content type and chunk list. The current version is the one with the highest number, and reads and listings always 
 use it. Chunks that did not change between versions are the same blobs, so only the changed chunks take new space.
 
+**Comparing.** `compareVersions` compares the chunk lists of two versions by position and returns the chunks that differ, without reading any content.
+
+**Folders.** A folder is a row in `folders` with its path. Storing a file or creating a folder also creates the folders above it. `listFolder` returns the direct subfolders and files of a folder, and `listFolders` every folder of a user.
+
 **Rollback.** `rollbackFile` restores a file to one of its earlier versions. It adds a new version with the size, content type and chunk list of the chosen one, 
 so the history is kept and a rollback can itself be rolled back. No chunk is written, because the new version points to the blobs that already exist.
 
@@ -49,7 +53,9 @@ uploads of the same new content at the same time do not collide.
 ## Notes
 
 * **Deleting a file** removes the file, all its versions and their chunk lists, but not the chunks. Unreferenced chunks 
-stay on disk until garbage collection is implemented.* **Chunk size** is the constant `DEFAULT_CHUNK_SIZE` in `blobService.cpp`. 
+stay on disk until garbage collection is implemented.
+* **Deleting a folder** deletes every file inside it, at any depth, in the same way.
+* **Chunk size** is the constant `DEFAULT_CHUNK_SIZE` in `blobService.cpp`. 
 It is not configurable yet.
 * **Memory.** A file is held in memory in full while it is uploaded and when it is read back.
 * **Hashing** uses the PicoSHA2 library.

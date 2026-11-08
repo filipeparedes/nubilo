@@ -11,7 +11,7 @@ The HTTP layer: server, routing, authentication check and the route handlers. It
 | `middleware.h` / `middleware.cpp` | `requireAuth`: wraps a handler so it only runs for a valid session. |
 | `ErrorResponse.h` / `ErrorResponse.cpp` | `writeErrorResponse`: the single place that builds error bodies. |
 | `routes/authRoutes.*` | Registration, login and logout. |
-| `routes/fileRoutes.*` | Upload, download, list, delete and restore files. |
+| `routes/fileRoutes.*` | Files, versions and folders: upload, download, list, delete, restore, compare, create and list folders. |
 | `routes/healthRoutes.*` | The health check. |
 
 ## How it works
@@ -33,7 +33,7 @@ or without an `Origin` header, gets no CORS headers. Only one origin is accepted
 
 ## Endpoints
 
-The server listens on port 8080. Routes marked "auth" need the `Authorization: Bearer <token>` header.
+The server listens on the port set in `config.json`. The same endpoints are described in [`docs/openapi.yaml`](../../docs/openapi.yaml). Routes marked "auth" need the `Authorization: Bearer <token>` header.
 
 | Method and path | Auth | Request | Success | Errors |
 |---|---|---|---|---|
@@ -41,7 +41,7 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `POST /auth/register` | no | JSON `email`, `password` | 201 `{"id": <userId>}` | 400 invalid body or email, 409 email already registered, 500 |
 | `POST /auth/login` | no | JSON `email`, `password` | 200 `{"token": "<token>"}` | 400 invalid body, 401 invalid credentials |
 | `POST /auth/logout` | yes | | 200 | 401, 500 |
-| `POST /files` | yes | multipart field `file`, optional `path` (defaults to the file name). Uploading to a path that already exists adds a new version of that file | 201 `{"id": <fileId>}` | 400 missing file or invalid path (see below), 401, 500 |
+| `POST /files` | yes | multipart field `file`, optional query parameter `path` (defaults to the file name). Uploading to a path that already exists adds a new version of that file | 201 `{"id": <fileId>}` | 400 missing file or invalid path (see below), 401, 500 |
 | `POST /files/{id}/versions/{version}/restore` | yes | | 201 `{"id": <fileId>, "version": <newVersion>}` | 401, 404 file or version not found, 500 |
 | `GET /files` | yes | | 200 array of `{id, path, size, contentType, createdAt, updatedAt}` | 401, 500 |
 | `GET /files/{id}` | yes | | 200 file content, with `Content-Disposition: attachment` | 401, 404, 500 |
@@ -49,6 +49,7 @@ The server listens on port 8080. Routes marked "auth" need the `Authorization: B
 | `POST /folders` | yes | JSON `path`. Parent folders that do not exist are created too, and creating a folder that already exists returns its id | 201 `{"id": <folderId>}` | 400 invalid body or path, 401, 500 |
 | `GET /root-contents` | yes | | 200 `{"path": "", "folders": [{id, path, createdAt}], "files": [{id, path, size, contentType, createdAt, updatedAt}]}`: the subfolders and files at the root, and the path of the root, which is empty | 401, 500 |
 | `GET /folders` | yes | | 200 `[{id, path, createdAt}]`: every folder of the user, at any depth and ordered by path, without files | 401, 500 |
+| `DELETE /folders/{id}` | yes | | 204. Deletes the folder and everything inside it, at any depth, with all the versions of the files | 401, 404, 500 |
 | `GET /folders/{id}` | yes | | 200 same shape as `GET /root-contents`, with the direct subfolders and files of that folder and its full path in `path`, for example `"docs/2026"` | 401, 404, 500 |
 | `GET /files/{id}/versions` | yes | | 200 `{"path": "docs/notes.txt", "versions": [{version, size, contentType, createdAt}]}`: the full path of the file and its versions, newest first. The first version is the current one | 401, 404, 500 |
 | `GET /files/{id}/versions/compare?from=N&to=M` | yes | query parameters `from` and `to`, version numbers | 200 `{fromVersion, toVersion, fromSize, toSize, fromChunks, toChunks, unchangedChunks, changes: [{position, from, to}]}`. `from` and `to` in a change are chunk hashes, or `null` if that version has no chunk at the position | 400 missing or invalid parameters, 401, 404 file or version not found, 500 |
