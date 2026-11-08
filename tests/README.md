@@ -7,14 +7,8 @@ test (`ut_`) or an integration test (`it_`).
 ## Running
 
 ```bash
-cmake --build build --target nubilo_tests
-ctest --test-dir build                                  # everything
-
-./build/tests/nubilo_tests                              # everything, with gtest output
-./build/tests/nubilo_tests --gtest_filter='UtFilesStore.*'          # one file
-./build/tests/nubilo_tests --gtest_filter='Ut*'                     # unit tests only
-./build/tests/nubilo_tests --gtest_filter='It*'                     # integration tests only
-ctest --test-dir build -R UtFolders                     # one feature through CTest
+scripts/test.sh                                         # everything
+scripts/test.sh 'UtFilesStore.*'                        # only the tests that match a GoogleTest filter
 ```
 
 ## Layout
