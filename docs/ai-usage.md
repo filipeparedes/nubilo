@@ -18,7 +18,7 @@ the design decisions and over the final version of the project. I take full resp
 
 | Area | How it was used | What stays mine |
 |---|---|---|
-| Tests | Writing unit and integration tests (GoogleTest) for the modules I implemented, including edge cases and failure scenarios. | I decide what must be tested, run every test and review the results. When a test fails, I decide whether the code or the test is wrong. |
+| Tests | Writing unit tests (GoogleTest) and integration tests (pytest) for the modules I implemented, including edge cases and failure scenarios. | I decide what must be tested, run every test and review the results. When a test fails, I decide whether the code or the test is wrong. |
 | Documentation | Drafting module READMEs, Doxygen comments, architecture notes, architecture decision records (ADRs) and the bibliography structure. | I review and edit every text so it matches the code, and I choose the references. |
 | Diagnostics and bug fixing | Analysing compiler errors, failing tests and sanitizer reports, and explaining the cause of a problem. | I confirm the diagnosis in the code, apply the fix and check it with the tests. |
 | Code review and technical discussion | Reviewing code I wrote, pointing out problems and comparing alternatives, for example how to structure error handling or concurrency. | I make the decisions. Suggestions I disagree with are not applied. |

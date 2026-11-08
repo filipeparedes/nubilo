@@ -52,6 +52,7 @@ The server is a modular monolith: a single process organised into the modules `a
 - A C++23 compiler (developed with Clang/LLVM)
 - CMake 3.28+
 - OpenSSL, zlib and Brotli (used by cpp-httplib)
+- Python 3 with `pytest` and `requests`, for the integration tests (`pip install -r tests/integration/requirements.txt`)
 
 cpp-httplib, nlohmann/json, SQLite, Argon2, PicoSHA2 and GoogleTest are downloaded by CMake during configuration.
 
@@ -67,7 +68,7 @@ sudo apt install cmake libssl-dev zlib1g-dev libbrotli-dev  # Linux (Debian/Ubun
 ```bash
 scripts/build.sh      # configures and builds the server (Debug; `scripts/build.sh Release` for a release build)
 scripts/run.sh        # starts the server on port 8080, building it first if needed
-scripts/test.sh       # builds the tests and runs all of them
+scripts/test.sh       # builds the tests and runs all of them: the unit tests (C++) and the integration tests (Python)
 ```
 
 The scripts use 4 parallel jobs. `JOBS=8 scripts/build.sh` changes that. They are short wrappers around CMake, which can also be used directly:
@@ -79,7 +80,8 @@ cmake --build build
 ./build/nubilo                                    # listens on port 8080
 
 cmake --build build --target nubilo_tests
-ctest --test-dir build
+ctest --test-dir build                        # unit tests
+python3 -m pytest tests/integration           # integration tests, need ./build/nubilo
 ```
 
 See [`tests/README.md`](tests/README.md) for how the tests are organised and how to run a single one.
