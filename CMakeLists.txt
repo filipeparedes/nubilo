@@ -62,6 +62,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(picosha2)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-fexperimental-library)
+    add_link_options(-fexperimental-library)
+endif()
 
 add_executable(nubilo
     src/main.cpp
