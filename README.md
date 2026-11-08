@@ -65,6 +65,14 @@ sudo apt install cmake libssl-dev zlib1g-dev libbrotli-dev  # Linux (Debian/Ubun
 ## Build, run and test
 
 ```bash
+scripts/build.sh      # configures and builds the server (Debug; `scripts/build.sh Release` for a release build)
+scripts/run.sh        # starts the server on port 8080, building it first if needed
+scripts/test.sh       # builds the tests and runs all of them
+```
+
+The scripts use 4 parallel jobs. `JOBS=8 scripts/build.sh` changes that. They are short wrappers around CMake, which can also be used directly:
+
+```bash
 cmake -S . -B build
 cmake --build build
 
@@ -77,7 +85,6 @@ ctest --test-dir build
 See [`tests/README.md`](tests/README.md) for how the tests are organised and how to run a single one.
 
 The server creates `nubilo.db` and a `blobs/` directory in the folder where it is started.
-
 ---
 
 ## Configuration
