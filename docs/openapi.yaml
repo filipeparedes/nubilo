@@ -1,0 +1,790 @@
+openapi: 3.1.0
+
+info:
+  title: Nubilo API
+  version: 1.0.0
+  summary: The REST API of the Nubilo server.
+  description: |
+    The API of Nubilo, a personal file storage server with content-addressed
+    storage, chunk-level deduplication and file versioning.
+
+    **Authentication.** `POST /auth/login` gives a session token. Every other
+    route, except `/health` and the registration, needs it in the header
+    `Authorization: Bearer <token>`. A missing, unknown or expired token is
+    answered with 401.
+
+    **Ownership.** Every file and folder belongs to one user. One that belongs
+    to someone else is answered with 404, the same as one that does not exist,
+    so its existence is not revealed.
+
+    **Paths.** A path is made of segments separated by single slashes, for
+    example `docs/2026/notes.txt`, and is relative to the root of the user.
+    It is rejected with 400 `INVALID_PATH` if it is empty, starts or ends with
+    a slash, contains a backslash, an empty segment, a `.` or `..` segment or a
+    control character, or is longer than 1024 bytes. The parent folders of a
+    path are created when a file or a folder is stored.
+
+    **Errors.** Every error has the same JSON body, `{"error": {"code": "...",
+    "message": "..."}}`. The `code` is a stable identifier, the `message` is
+    meant to be read by a person.
+
+    **CORS.** The server allows one origin, the address of the frontend
+    (`server.corsOrigin` in `config.json`). Browsers from any other origin
+    cannot call it. The header `Content-Disposition` is exposed, so a frontend
+    can read the file name of a download.
+
+    **Dates.** Dates are UTC, written as `YYYY-MM-DD HH:MM:SS`.
+  license:
+    name: Project license, see the repository
+
+servers:
+  - url: http://localhost:8080
+    description: A server started with the default configuration
+
+tags:
+  - name: Health
+    description: Check that the server is running.
+  - name: Auth
+    description: Accounts and sessions.
+  - name: Files
+    description: Upload, download, list and delete files.
+  - name: Versions
+    description: The history of a file.
+  - name: Folders
+    description: Create, browse and delete folders.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Check the server
+      security: []
+      responses:
+        "200":
+          description: The server is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Create an account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "201":
+          description: The account was created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: integer
+                    description: The id of the new user.
+        "400":
+          description: The body is not valid JSON, has no `email` or `password`, or the email has no valid format.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: Invalid email format.
+        "409":
+          description: The email is already registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: REGISTRATION_FAILED
+                  message: Could not register user.
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Start a session
+      description: Checks the credentials and gives a session token. The token lasts `auth.sessionDays` days.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: The session token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token]
+                properties:
+                  token:
+                    type: string
+        "400":
+          description: The body is not valid JSON, or has no `email` or `password`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: Email and password are required
+        "401":
+          description: The email is unknown or the password is wrong.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: AUTHENTICATION_FAILED
+                  message: Invalid credentials.
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: End the session
+      description: Invalidates the token of the request. It cannot be used again.
+      responses:
+        "200":
+          description: The session was ended.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /files:
+    post:
+      tags: [Files]
+      operationId: uploadFile
+      summary: Upload a file
+      description: |
+        Stores a file. If the path already holds a file, the content becomes a
+        new version of it. The parent folders that do not exist are created.
+        A file is held in memory in full while it is uploaded.
+      parameters:
+        - name: path
+          in: query
+          required: false
+          description: The path to store the file at. By default, the name of the uploaded file.
+          schema:
+            type: string
+          example: docs/2026/notes.txt
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The content of the file.
+      responses:
+        "201":
+          description: The file was stored. If the path already existed, this is the id of the same file.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Created"
+        "400":
+          description: The `file` part is missing, or the path is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                missingFile:
+                  summary: No file
+                  value:
+                    error:
+                      code: INVALID_REQUEST
+                      message: Missing file.
+                invalidPath:
+                  summary: Invalid path
+                  value:
+                    error:
+                      code: INVALID_PATH
+                      message: Path must not contain empty segments.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/PathConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      tags: [Files]
+      operationId: listFiles
+      summary: List every file
+      description: Every file of the user, at any depth and in any folder. To browse by folder, use `/root-contents` and `/folders/{id}`.
+      responses:
+        "200":
+          description: The files of the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /files/{id}:
+    parameters:
+      - $ref: "#/components/parameters/FileId"
+    get:
+      tags: [Files]
+      operationId: downloadFile
+      summary: Download a file
+      description: The latest content of the file. A file is held in memory in full while it is downloaded.
+      responses:
+        "200":
+          $ref: "#/components/responses/FileContent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Files]
+      operationId: deleteFile
+      summary: Delete a file
+      description: Deletes the file with all its versions. The chunks that no other file uses stay on disk until garbage collection exists.
+      responses:
+        "204":
+          description: The file was deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /files/{id}/versions:
+    parameters:
+      - $ref: "#/components/parameters/FileId"
+    get:
+      tags: [Versions]
+      operationId: listVersions
+      summary: List the versions of a file
+      description: The versions of the file, newest first. The first one is the current version.
+      responses:
+        "200":
+          description: The full path of the file and its versions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileVersions"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /files/{id}/versions/compare:
+    parameters:
+      - $ref: "#/components/parameters/FileId"
+    get:
+      tags: [Versions]
+      operationId: compareVersions
+      summary: Compare two versions of a file
+      description: |
+        Compares two versions chunk by chunk, by position. The answer is a
+        summary and has no text. With fixed-size chunks, a change that moves
+        the rest of the content of a file (an insertion near the start)
+        changes every chunk after it.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: The number of the first version.
+          schema:
+            type: integer
+            minimum: 1
+        - name: to
+          in: query
+          required: true
+          description: The number of the second version.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: The summary of the difference.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionComparison"
+        "400":
+          description: "`from` or `to` is missing or is not a positive integer."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: INVALID_REQUEST
+                  message: Query parameters 'from' and 'to' must be version numbers.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /files/{id}/versions/{version}:
+    parameters:
+      - $ref: "#/components/parameters/FileId"
+      - $ref: "#/components/parameters/Version"
+    get:
+      tags: [Versions]
+      operationId: downloadVersion
+      summary: Download one version of a file
+      responses:
+        "200":
+          $ref: "#/components/responses/FileContent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /files/{id}/versions/{version}/restore:
+    parameters:
+      - $ref: "#/components/parameters/FileId"
+      - $ref: "#/components/parameters/Version"
+    post:
+      tags: [Versions]
+      operationId: restoreVersion
+      summary: Restore an earlier version
+      description: Adds a new version with the content of the chosen one. No version is changed or deleted.
+      responses:
+        "201":
+          description: The new version.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, version]
+                properties:
+                  id:
+                    type: integer
+                    description: The id of the file.
+                  version:
+                    type: integer
+                    description: The number of the version that was added.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /folders:
+    post:
+      tags: [Folders]
+      operationId: createFolder
+      summary: Create a folder
+      description: The parent folders that do not exist are created too. Creating a folder that already exists answers with its id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  example: docs/2026
+      responses:
+        "201":
+          description: The folder exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Created"
+        "400":
+          description: The body is not JSON with a string `path`, or the path is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalidRequest:
+                  summary: No path
+                  value:
+                    error:
+                      code: INVALID_REQUEST
+                      message: Request body must be JSON with a string field 'path'.
+                invalidPath:
+                  summary: Invalid path
+                  value:
+                    error:
+                      code: INVALID_PATH
+                      message: "Path must not contain '.' or '..' segments."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/PathConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      tags: [Folders]
+      operationId: listFolders
+      summary: List every folder
+      description: Every folder of the user, at any depth and ordered by path, without files. It is the list the side tree of a file browser is built from.
+      responses:
+        "200":
+          description: The folders of the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FolderInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /root-contents:
+    get:
+      tags: [Folders]
+      operationId: getRootContents
+      summary: List the root
+      description: The subfolders and the files at the root, and nothing deeper. The `path` of the answer is empty.
+      responses:
+        "200":
+          description: The contents of the root.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolderContents"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /folders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/FolderId"
+    get:
+      tags: [Folders]
+      operationId: getFolderContents
+      summary: List a folder
+      description: The direct subfolders and files of the folder, and its full path in `path`.
+      responses:
+        "200":
+          description: The contents of the folder.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolderContents"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Folders]
+      operationId: deleteFolder
+      summary: Delete a folder
+      description: "Deletes the folder and everything inside it, at any depth: its subfolders and its files, with all their versions."
+      responses:
+        "204":
+          description: The folder was deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: The token that `POST /auth/login` gives.
+
+  parameters:
+    FileId:
+      name: id
+      in: path
+      required: true
+      description: The id of the file.
+      schema:
+        type: integer
+    FolderId:
+      name: id
+      in: path
+      required: true
+      description: The id of the folder.
+      schema:
+        type: integer
+    Version:
+      name: version
+      in: path
+      required: true
+      description: The number of the version, from 1.
+      schema:
+        type: integer
+        minimum: 1
+
+  responses:
+    Unauthorized:
+      description: The token is missing, unknown or expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Invalid token.
+    NotFound:
+      description: The file, folder or version does not exist, or belongs to another user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: NOT_FOUND
+              message: File not found.
+    PathConflict:
+      description: "A file and a folder cannot have the same path, and the path is already used by the other kind: a file is uploaded where a folder exists, or a folder is created where a file exists."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: PATH_CONFLICT
+              message: "A folder already exists at 'docs'."
+    InternalError:
+      description: The operation failed on the server. The `code` says which one, such as `UPLOAD_FAILED` or `LIST_FAILED`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: LIST_FAILED
+              message: Could not list files.
+    FileContent:
+      description: |
+        The content of the file, with the content type it was uploaded with
+        (`application/octet-stream` if it had none).
+      headers:
+        Content-Disposition:
+          description: '`attachment; filename="<full path of the file>"`.'
+          schema:
+            type: string
+      content:
+        "*/*":
+          schema:
+            type: string
+            format: binary
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: |
+                A stable identifier: `INVALID_REQUEST`, `INVALID_PATH`,
+                `UNAUTHORIZED`, `AUTHENTICATION_FAILED`, `NOT_FOUND`,
+                `PATH_CONFLICT`, or the code of a failure on the server such
+                as `UPLOAD_FAILED`.
+            message:
+              type: string
+
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    Created:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+
+    FileInfo:
+      type: object
+      required: [id, path, size, contentType, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        path:
+          type: string
+          example: docs/notes.txt
+        size:
+          type: integer
+          description: The size in bytes of the current version.
+        contentType:
+          type: string
+          example: text/plain
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+        updatedAt:
+          $ref: "#/components/schemas/DateTime"
+
+    FolderInfo:
+      type: object
+      required: [id, path, createdAt]
+      properties:
+        id:
+          type: integer
+        path:
+          type: string
+          example: docs/2026
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+
+    FolderContents:
+      type: object
+      required: [path, folders, files]
+      properties:
+        path:
+          type: string
+          description: The full path of the folder. It is empty for the root.
+          example: docs
+        folders:
+          type: array
+          description: The direct subfolders.
+          items:
+            $ref: "#/components/schemas/FolderInfo"
+        files:
+          type: array
+          description: The files directly inside the folder.
+          items:
+            $ref: "#/components/schemas/FileInfo"
+
+    VersionInfo:
+      type: object
+      required: [version, size, contentType, createdAt]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          description: The size in bytes of that version.
+        contentType:
+          type: string
+        createdAt:
+          $ref: "#/components/schemas/DateTime"
+
+    FileVersions:
+      type: object
+      required: [path, versions]
+      properties:
+        path:
+          type: string
+          description: The full path of the file.
+          example: docs/notes.txt
+        versions:
+          type: array
+          description: Newest first. The first one is the current version.
+          items:
+            $ref: "#/components/schemas/VersionInfo"
+
+    ChunkChange:
+      type: object
+      required: [position, from, to]
+      description: A chunk position where the two versions differ.
+      properties:
+        position:
+          type: integer
+          minimum: 0
+          description: The position of the chunk in the file, from 0.
+        from:
+          type: [string, "null"]
+          description: The hash of the chunk in the first version, or null if that version has no chunk at the position.
+        to:
+          type: [string, "null"]
+          description: The hash of the chunk in the second version, or null if that version has no chunk at the position.
+
+    VersionComparison:
+      type: object
+      required:
+        [fromVersion, toVersion, fromSize, toSize, fromChunks, toChunks, unchangedChunks, changes]
+      properties:
+        fromVersion:
+          type: integer
+        toVersion:
+          type: integer
+        fromSize:
+          type: integer
+          description: The size in bytes of the first version.
+        toSize:
+          type: integer
+          description: The size in bytes of the second version.
+        fromChunks:
+          type: integer
+        toChunks:
+          type: integer
+        unchangedChunks:
+          type: integer
+          description: How many positions hold the same chunk in both versions.
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChunkChange"
+
+    DateTime:
+      type: string
+      description: A UTC date and time as `YYYY-MM-DD HH:MM:SS`.
+      example: "2026-04-02 14:08:00"

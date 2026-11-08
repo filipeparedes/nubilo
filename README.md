@@ -21,8 +21,10 @@ A personal file synchronization system, built from scratch in C++. This reposito
 | Version listing and comparison | Done |
 | Conflict handling | Postponed |
 | `nubilo-client`: local sync client and CLI | Postponed |
-| `nubilo-web`: web frontend | Planned |
-| Deployment, OpenAPI specification, orphan blob cleanup, benchmarks | Planned |
+| `nubilo-web`: web frontend | Done, in its own repository |
+| Integration tests in Python and helper scripts to build, run and test | Done |
+| OpenAPI specification and deployment guide | Done |
+| Orphan blob cleanup, benchmarks and automated deployment | Planned |
 | Real-time notifications and file sharing between users | Postponed |
 
 See the [Roadmap](docs/roadmap.md) for the plan, sprint by sprint.
@@ -86,7 +88,8 @@ python3 -m pytest tests/integration           # integration tests, need ./build/
 
 See [`tests/README.md`](tests/README.md) for how the tests are organised and how to run a single one.
 
-The server creates `nubilo.db` and a `blobs/` directory in the folder where it is started.
+The server creates the database file and the blob directory set in `config.json`.
+
 ---
 
 ## Configuration
@@ -118,8 +121,8 @@ curl -X POST localhost:8080/auth/login -H "Content-Type: application/json" \
 TOKEN="<token from the login response>"
 
 # upload a file (uploading to the same path again adds a new version)
-curl -X POST localhost:8080/files -H "Authorization: Bearer $TOKEN" \
-  -F "file=@notes.txt" -F "path=notes.txt"
+curl -X POST "localhost:8080/files?path=notes.txt" -H "Authorization: Bearer $TOKEN" \
+  -F "file=@notes.txt"
 
 # list files, download one and restore version 1 of it
 curl localhost:8080/files -H "Authorization: Bearer $TOKEN"
@@ -130,7 +133,7 @@ curl -X POST localhost:8080/files/1/versions/1/restore -H "Authorization: Bearer
 curl localhost:8080/files/1/versions/1 -H "Authorization: Bearer $TOKEN" -o notes-v1.txt
 ```
 
-All endpoints are listed in [`include/api/README.md`](include/api/README.md).
+All endpoints are listed in [`include/api/README.md`](include/api/README.md) and described in the [OpenAPI specification](docs/openapi.yaml).
 
 ---
 
@@ -140,6 +143,8 @@ All endpoints are listed in [`include/api/README.md`](include/api/README.md).
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Overview of the system and its modules. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Phases and sprint plan. |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 3.1 specification of the API. |
+| [`docs/deployment.md`](docs/deployment.md) | How to run the server and the frontend on a Linux server. |
 | [`docs/decisions/`](docs/decisions) | Architecture decision records (ADRs). |
 | [`docs/progress/`](docs/progress) | Sprint planning and retrospectives. |
 | [`docs/coding-standards.md`](docs/coding-standards.md) | Code conventions. |

@@ -51,10 +51,11 @@ The hours in the development phases also account for any research/learning that 
   `nubilo-client` moves to after v1.0. It remains the long-term priority for how a user interacts with their files, through its CLI.
 - **CI pipeline early:** the pipeline (build and tests on every push and pull request) starts in Sprint 6, so that the
 rest of the project, including the client and the frontend, is built with automatic checks.
-- **Phase 8:** a final phase dedicated to configuration, polish and delivery. Configuration through environment variables
-  comes first, since deployment depends on it. Then the deployment of the system, the deployment guide, the OpenAPI specification,
-  the cleaning of orphan blobs and the measurements (deduplication savings, version savings and upload time with and without the thread pool).
-  Automated deployment with GitHub Actions is the last item and moves to a future release if time runs out.
+- **Phase 8:** a final phase dedicated to configuration, polish and delivery. Configuration is done through a `config.json`
+  file, which replaced the environment variables planned at first and was done in Sprint 7. The sprint delivered the deployment guide, the OpenAPI
+  specification, the integration tests in Python and the consolidation of the documentation. The deployment itself, the cleaning
+  of orphan blobs, the measurements (deduplication savings, version savings and upload time with and without the thread pool)
+  and the automated deployment were moved out of v1.0 for lack of time.
   Real-time notifications and file sharing remain optional extras.
 
 ---
@@ -123,22 +124,21 @@ to adjust scope during implementation.
 - End-to-end integration testing pass
 
 ## v1.0 (Sprint 8) (nubilo + nubilo-web) (~40h)
-- Configuration through environment variables (port, database path, blob directory), first
-- Deployment of the server and the frontend
+- Frontend: the rest of the file browser, version comparison included
+- Helper scripts to build, run and test
+- Integration tests in Python, separate from the unit tests
 - Deployment guide
 - OpenAPI specification of the API
-- Orphan blob garbage collection
-- Benchmarks (deduplication and version savings, upload time with and without the thread pool)
-- Documentation consolidation (final report, etc..)
+- Documentation consolidation
 - Final polish and fixes
-- Automated deployment with GitHub Actions, last (moves to a future release if there is no time)
-
-## Extras (if there is extra time available)
-- Real-time notifications (mechanism TBD: websockets vs polling) 
-- File sharing between users (permissions model, share endpoint)
-- File/folder moving & renaming
 
 ## Unplanned future releases
+- Deployment of the server and the frontend, and automated deployment with GitHub Actions
+- Orphan blob garbage collection 
+- Benchmarks: deduplication and version savings, upload time with and without the thread pool
+- Real-time notifications (mechanism TBD: websockets vs polling)
+- File sharing between users (permissions model, share endpoint)
+- File/folder moving & renaming
 - Multi-server replication and high availability
 - Email verification (send confirmation link/code)
 - Centralized logging to daily rotated files

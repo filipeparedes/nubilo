@@ -29,6 +29,7 @@ SQLite access for the whole server: connection, transactions and schema migratio
 | `users` | Accounts: email and password hash. |
 | `sessions` | Login tokens, with an expiration date. |
 | `files` | One row per file: owner, path and timestamps. Unique per owner and path. |
+| `folders` | One row per folder: owner and path. Unique per owner and path. |
 | `file_versions` | One row per version of a file: version number, size, content type and creation date. |
 | `blobs` | One row per stored chunk: hash and size. |
 | `file_chunks` | The ordered list of chunks that make up each version. |

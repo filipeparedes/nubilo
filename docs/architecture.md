@@ -64,10 +64,12 @@ for why this was chosen over a microservices approach.
 
 - **API layer** — receives HTTP requests, routes them to the appropriate
   module, and formats responses (JSON via nlohmann/json).
-- **Auth** — handles sessions/tokens and authorization checks.
-- **Storage** — persists all application metadata in SQLite: user accounts, sessions, sync-state and file metadata.
+- **Auth** — registers users, hashes passwords with Argon2id and handles sessions/tokens.
+- **Storage** — persists all application metadata in SQLite: user accounts, sessions, files, versions, folders and chunk lists.
 - **Blob** - persists the actual file content on disk, as content-addressed storage.
 - **Concurrency** - runs work on several threads. Holds the thread pool that the blob module uses to write file chunks in parallel.
+
+The server reads its settings from `config.json` when it starts (see the [README](../README.md#configuration)). The API is described in [`openapi.yaml`](./openapi.yaml) and the steps to run the server in production are in the [deployment guide](./deployment.md).
 
 Each module is expected to expose a narrow internal interface, so that if the
 project ever needed to extract a module into its own service (e.g. the sync
@@ -149,13 +151,14 @@ confirms to an attacker that the resource exists.
 ## Tech stack
 
 - **Language:** C++23
-- **HTTP layer:** cpp-httplib / Crow
+- **HTTP layer:** cpp-httplib
 - **Serialization:** nlohmann/json
 - **Database:** SQLite
-- **Change detection:** SHA-256
 - **File hashing:** SHA-256
 - **Password hashing:** Argon2
 - **Build system:** CMake
+- **Tests:** GoogleTest (unit) and pytest (integration)
+- **CI:** GitHub Actions
 - **Development platform:** macOS
 
 ## Workflow
