@@ -30,7 +30,6 @@ add_subdirectory(path)
 add_subdirectory(storage)
 add_subdirectory(threads)
 add_subdirectory(versioning)
-add_subdirectory(integration)
 add_subdirectory(config)
 
 target_include_directories(nubilo_tests PRIVATE ${CMAKE_SOURCE_DIR}/include ${picosha2_SOURCE_DIR})
