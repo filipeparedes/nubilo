@@ -24,8 +24,7 @@ A personal file synchronization system, built from scratch in C++. This reposito
 | `nubilo-web`: web frontend | Done, in its own repository |
 | Integration tests in Python and helper scripts to build, run and test | Done |
 | OpenAPI specification and deployment guide | Done |
-| Orphan blob cleanup, benchmarks and automated deployment | Planned |
-| Real-time notifications and file sharing between users | Postponed |
+| Real-time notifications and file sharing between users | Planned |
 
 See the [Roadmap](docs/roadmap.md) for the plan, sprint by sprint.
 
